@@ -7,6 +7,7 @@ from .actions import (
     inspect,
     interact,
     move_player,
+    npc_interact,
     open_interactable,
     record_conversation_response,
     take_item,
@@ -514,6 +515,28 @@ DOOR STATE MACHINE:
 - unlocked → can be opened with "open" action
 - open → can be passed through (use "move" with the door's direction)
 
+NPC ACTION RULES:
+
+- An action in the "actions" array may optionally include an "actor"
+  field naming an NPC, e.g.:
+  {"type": "interact", "actor": "old_man", "target": "Traveler",
+   "topic": "asking the traveler to stay downstairs"}
+- NPC actions are optional action proposals, not commands. The NPC
+  proposes; Python validates and executes them.
+- Only explicitly implemented NPC action types are permitted. In this
+  version, NPCs may only use "interact". NPCs cannot move, take, drop,
+  use, open, wait, or change world state.
+- Python validates each NPC action: the actor must exist, be an NPC, be
+  at the current location, and the target must be valid. Invalid NPC
+  actions fail safely and do not change game state.
+- An NPC's goals, beliefs, relationships, and personality do NOT grant
+  permission to mutate game state.
+- Never assume an NPC action succeeded unless the action result or game
+  state confirms it.
+- NPC actions do not happen autonomously. An NPC acts only when this
+  response explicitly contains that action.
+- For ordinary player actions, omit the "actor" field entirely.
+
 OTHER RULES:
 
 - Only use entities that exist in the supplied game state.
@@ -632,7 +655,7 @@ Interpret the player's action and return the required JSON.
         )
 
         for action in result.get("actions", []):
-            if action.get("type") == "interact":
+            if action.get("type") == "interact" and not action.get("actor"):
                 topic = action.get("topic", "")
 
                 if topic.strip():
@@ -681,6 +704,10 @@ Interpret the player's action and return the required JSON.
         """Execute one AI-requested action."""
 
         action_type = action.get("type")
+        actor = action.get("actor")
+
+        if actor:
+            return self._execute_npc_action(action)
 
         if action_type == "move":
             return move_player(
@@ -749,3 +776,31 @@ Interpret the player's action and return the required JSON.
                 "data": {},
             },
         )()
+
+    def _execute_npc_action(
+        self,
+        action: dict[str, Any],
+    ):
+        """Execute one NPC-proposed action (V1: interact only)."""
+
+        action_type = action.get("type")
+
+        if action_type != "interact":
+            return type(
+                "NpcActionNotAllowed",
+                (),
+                {
+                    "success": False,
+                    "message": (
+                        f"NPCs cannot perform action type: {action_type}"
+                    ),
+                    "data": {},
+                },
+            )()
+
+        return npc_interact(
+            self.game,
+            action.get("actor", ""),
+            action.get("target", ""),
+            action.get("topic", ""),
+        )

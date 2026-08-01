@@ -241,6 +241,26 @@ def _find_npc(
     return None
 
 
+def _find_any_npc(
+    game: GameState,
+    target: str,
+) -> NPC | None:
+    """Find an NPC by id or name anywhere in the world."""
+
+    target_lower = target.lower().strip()
+
+    for npc in game.world.npcs.values():
+        if (
+            npc.id.lower() == target_lower
+            or npc.name.lower() == target_lower
+            or target_lower in npc.name.lower()
+            or npc.name.lower() in target_lower
+        ):
+            return npc
+
+    return None
+
+
 def _extract_response_summary(
     npc_name: str,
     narration: str,
@@ -419,6 +439,91 @@ def interact(
     return ActionResult(
         False,
         f"You cannot find '{target}' here.",
+    )
+
+
+def npc_interact(
+    game: GameState,
+    actor: str,
+    target: str,
+    topic: str = "",
+) -> ActionResult:
+    """Handle an NPC-initiated interact (dialogue) event.
+
+    V1 supports only an NPC addressing another entity at the current
+    location. Python remains authoritative: the actor must exist, be an
+    NPC, and be at the current location.
+    """
+
+    npc = _find_any_npc(game, actor)
+
+    if npc is None:
+        return ActionResult(
+            False,
+            f"NPC actor '{actor}' does not exist.",
+        )
+
+    location = game.current_location()
+
+    if location is None or npc.id not in location.npcs:
+        return ActionResult(
+            False,
+            f"{npc.name} is not at the current location.",
+        )
+
+    player = game.player
+    target_lower = target.lower().strip()
+
+    target_is_player = (
+        target_lower in {"traveler", "player", "you", "me"}
+        or (
+            target_lower
+            and (
+                target_lower in player.name.lower()
+                or player.name.lower() in target_lower
+            )
+        )
+    )
+
+    if target_is_player:
+        target_label = "the player"
+        target_data = player.name
+    else:
+        target_npc = _find_npc(game, target)
+
+        if target_npc is None:
+            return ActionResult(
+                False,
+                f"{npc.name} cannot find target '{target}' here.",
+            )
+
+        target_label = target_npc.name
+        target_data = target_label
+
+    topic_lower = topic.lower().strip()
+
+    if topic_lower:
+        _record_npc_memory(
+            npc,
+            f"{npc.name} spoke to {target_label} about {topic_lower}.",
+        )
+    else:
+        _record_npc_memory(
+            npc,
+            f"{npc.name} spoke to {target_label}.",
+        )
+
+    return ActionResult(
+        True,
+        (
+            f"{npc.name} speaks to {target_label}"
+            + (f" about {topic_lower}." if topic_lower else ".")
+        ),
+        {
+            "actor": npc.id,
+            "target": target_data,
+            "topic": topic_lower,
+        },
     )
 
 
