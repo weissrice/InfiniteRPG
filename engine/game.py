@@ -290,6 +290,24 @@ A SUPPLIED BELIEF IS AUTHORITATIVE FOR THE NPC'S CURRENT OPINION:
   opinion. The NPC should state that expectation, not disclaim having
   any view on the matter.
 
+NPC GOAL RULES:
+
+- The "Goals" entries under an NPC describe what the NPC wants or is
+  trying to accomplish or maintain.
+- Goals are subjective NPC state, NOT authoritative world facts.
+- Goals may influence the NPC's dialogue, priorities, reactions, and
+  suggestions.
+- Do NOT invent goals that are not supplied.
+- Do NOT treat a goal as proof that something has happened. A goal is a
+  desire/objective, not a fact.
+- A goal does not automatically cause an action. It describes what the
+  NPC wants, not what the game guarantees the NPC will do.
+- A goal does NOT grant permission to change inventory, location, item
+  ownership, world state, or any other game state.
+- The player does not automatically share the NPC's goals.
+- Different NPCs may have different or conflicting goals.
+- Python/game state remains authoritative.
+
 CRITICAL: AUTHORITATIVE VS SUBJECTIVE HIERARCHY.
 
 AUTHORITATIVE:
@@ -301,11 +319,18 @@ SUBJECTIVE:
 - NPC beliefs
 - NPC personality
 - NPC memories
+- NPC goals
 
 - If a belief conflicts with the actual game state, the game state wins.
   The NPC may voice its mistaken belief (e.g. "I thought that door was
   still locked."), but that must never change the actual game state.
 - Never let an NPC's belief override the reality shown in the context.
+- A goal must never directly mutate game state. It only shapes what the
+  NPC says or suggests. For example, an NPC whose goal is "Protect the
+  upstairs area from unwanted visitors" may say "I'd rather nobody went
+  upstairs," but must NOT lock doors, remove keys, block movement,
+  teleport NPCs, change ownership, create items, or otherwise alter game
+  state. Python performs all actual state changes.
 
 DOOR STATE MACHINE:
 - locked → cannot open, requires key or unlocking

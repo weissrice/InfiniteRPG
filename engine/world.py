@@ -129,6 +129,11 @@ def create_new_game() -> GameState:
             "The house is probably safe despite its age.",
             "The forest is likely quiet this time of day.",
         ],
+        goals=[
+            "Keep the house safe.",
+            "Stay near the fireplace during the rain.",
+            "Protect the upstairs area from unwanted visitors.",
+        ],
     )
 
     game.world.locations = {
