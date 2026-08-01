@@ -57,6 +57,9 @@ def create_new_game() -> GameState:
         },
         symbol="🍳",
         visual_type="interior",
+        interactables=[
+            "kitchen_stew_pot",
+        ],
     )
 
     upstairs = Location(
@@ -102,6 +105,17 @@ def create_new_game() -> GameState:
         location="upstairs",
         state="locked",
         unlock_items=["Rusty Key"],
+    )
+
+    kitchen_stew_pot = Interactable(
+        id="kitchen_stew_pot",
+        name="Stew Pot",
+        description=(
+            "A heavy iron pot hangs over the kitchen hearth, "
+            "steaming with the evening meal."
+        ),
+        location="kitchen",
+        state="default",
     )
 
     old_man = NPC(
@@ -154,6 +168,9 @@ def create_new_game() -> GameState:
             "18": "preparing the evening meal",
             "21": "keeping watch over the house",
         },
+        activity_objects_by_time={
+            "18": "kitchen_stew_pot",
+        },
     )
 
     game.world.locations = {
@@ -166,6 +183,7 @@ def create_new_game() -> GameState:
 
     game.world.interactables = {
         locked_upstairs_door.id: locked_upstairs_door,
+        kitchen_stew_pot.id: kitchen_stew_pot,
     }
 
     game.world.npcs = {

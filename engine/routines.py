@@ -78,11 +78,17 @@ def advance_npc_routines(game: GameState) -> List[str]:
 
 
 def update_npc_activities(game: GameState) -> List[str]:
-    """Set each NPC's current activity from its activity data.
+    """Set each NPC's current activity and activity object.
 
-    The current hour drives the activity table. This is fully
-    deterministic and data-driven; no AI decision-making. Activity
-    updates apply even when the NPC does not change location.
+    The current hour drives both tables. This is fully deterministic
+    and data-driven; no AI decision-making. Activity updates apply even
+    when the NPC does not change location.
+
+    The activity object binding is validated by Python: it must exist in
+    the world and be located where the NPC currently is. A valid binding
+    change records a memory-only interaction event on the NPC and the
+    object. Invalid or missing bindings are cleared; object state,
+    flags, items, doors, and locations are never changed.
 
     Returns a list of human-readable activity change descriptions.
     """
@@ -93,17 +99,37 @@ def update_npc_activities(game: GameState) -> List[str]:
 
     for npc in game.world.npcs.values():
         activity = npc.activity_by_time.get(hour)
+        object_id = npc.activity_objects_by_time.get(hour)
 
-        if activity is None:
-            continue
+        if activity is not None and activity != npc.current_activity:
+            npc.current_activity = activity
 
-        if activity == npc.current_activity:
-            continue
+            changes.append(
+                f"{npc.name} is now {activity}."
+            )
 
-        npc.current_activity = activity
+        valid_object = ""
 
-        changes.append(
-            f"{npc.name} is now {activity}."
-        )
+        if object_id is not None:
+            obj = game.world.interactables.get(object_id)
+
+            if obj is not None and obj.location == npc.location:
+                valid_object = object_id
+
+        if valid_object != npc.current_activity_object:
+            if valid_object:
+                obj = game.world.interactables[valid_object]
+
+                _record_routine_memory(
+                    npc,
+                    f"{npc.name} used the {obj.name}.",
+                )
+
+                entry = f"{npc.name} used this."
+
+                if entry not in obj.memory:
+                    obj.memory.append(entry)
+
+            npc.current_activity_object = valid_object
 
     return changes

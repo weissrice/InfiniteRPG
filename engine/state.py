@@ -30,6 +30,8 @@ class NPC:
     schedule: Dict[str, str] = field(default_factory=dict)
     current_activity: str = ""
     activity_by_time: Dict[str, str] = field(default_factory=dict)
+    current_activity_object: str = ""
+    activity_objects_by_time: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass

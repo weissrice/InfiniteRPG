@@ -262,6 +262,37 @@ def _find_any_npc(
     return None
 
 
+def _find_interactable_at_location(
+    game: GameState,
+    location_id: str,
+    target: str,
+) -> Interactable | None:
+    """Find an interactable object at a specific location."""
+
+    location = game.world.locations.get(location_id)
+
+    if location is None:
+        return None
+
+    target_lower = target.lower().strip()
+
+    for object_id in location.interactables:
+        obj = game.world.interactables.get(object_id)
+
+        if obj is None:
+            continue
+
+        if (
+            obj.id.lower() == target_lower
+            or obj.name.lower() == target_lower
+            or target_lower in obj.name.lower()
+            or obj.name.lower() in target_lower
+        ):
+            return obj
+
+    return None
+
+
 def _extract_response_summary(
     npc_name: str,
     narration: str,
@@ -524,6 +555,86 @@ def npc_interact(
             "actor": npc.id,
             "target": target_data,
             "topic": topic_lower,
+        },
+    )
+
+
+def npc_interact_object(
+    game: GameState,
+    actor: str,
+    target: str,
+) -> ActionResult:
+    """Handle an NPC-initiated interaction with a world object.
+
+    V1: the actor must be an NPC at the current location, the target
+    must be an interactable object at that location, and the target
+    must equal the NPC's current activity object. The effect is
+    memory-only; Python never mutates the object's state, flags, items,
+    doors, or locations.
+    """
+
+    npc = _find_any_npc(game, actor)
+
+    if npc is None:
+        return ActionResult(
+            False,
+            f"NPC actor '{actor}' does not exist.",
+        )
+
+    location = game.current_location()
+
+    if location is None or npc.id not in location.npcs:
+        return ActionResult(
+            False,
+            f"{npc.name} is not at the current location.",
+        )
+
+    target_lower = target.lower().strip()
+
+    if not target_lower:
+        return ActionResult(
+            False,
+            f"{npc.name} cannot interact with an empty target.",
+        )
+
+    obj = _find_interactable_at_location(
+        game,
+        location.id,
+        target,
+    )
+
+    if obj is None:
+        return ActionResult(
+            False,
+            f"{npc.name} cannot find '{target}' here.",
+        )
+
+    if obj.id != npc.current_activity_object:
+        return ActionResult(
+            False,
+            (
+                f"{npc.name} is not currently working with "
+                f"the {obj.name.lower()}."
+            ),
+        )
+
+    _record_npc_memory(
+        npc,
+        f"{npc.name} used the {obj.name}.",
+    )
+
+    entry = f"{npc.name} used this."
+
+    if entry not in obj.memory:
+        obj.memory.append(entry)
+
+    return ActionResult(
+        True,
+        f"{npc.name} uses the {obj.name}.",
+        {
+            "actor": npc.id,
+            "target": obj.id,
+            "state": obj.state,
         },
     )
 

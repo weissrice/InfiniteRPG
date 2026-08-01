@@ -86,6 +86,21 @@ def build_game_context(game: GameState) -> str:
                             "(authoritative current state)"
                         )
 
+                    if npc.current_activity_object:
+                        activity_obj = world.interactables.get(
+                            npc.current_activity_object
+                        )
+
+                        if activity_obj:
+                            object_label = activity_obj.name
+                        else:
+                            object_label = npc.current_activity_object
+
+                        lines.append(
+                            f"  Activity Object: {object_label} "
+                            f"(id: {npc.current_activity_object})"
+                        )
+
                     lines.append(
                         f"  Disposition: {npc.disposition}"
                     )
@@ -229,6 +244,22 @@ def build_game_context(game: GameState) -> str:
                     else:
                         lines.append(
                             "  Used: no"
+                        )
+
+                    used_by = []
+
+                    for npc_id in location.npcs:
+                        npc = world.npcs.get(npc_id)
+
+                        if (
+                            npc
+                            and npc.current_activity_object == obj.id
+                        ):
+                            used_by.append(npc.name)
+
+                    if used_by:
+                        lines.append(
+                            f"  Used by: {', '.join(used_by)}"
                         )
 
                 else:

@@ -8,6 +8,7 @@ from .actions import (
     interact,
     move_player,
     npc_interact,
+    npc_interact_object,
     open_interactable,
     record_conversation_response,
     take_item,
@@ -542,8 +543,8 @@ NPC ACTION RULES:
 - NPC actions are optional action proposals, not commands. The NPC
   proposes; Python validates and executes them.
 - Only explicitly implemented NPC action types are permitted. In this
-  version, NPCs may only use "interact". NPCs cannot move, take, drop,
-  use, open, wait, or change world state.
+  version, NPCs may use "interact" and "interact_object". NPCs cannot
+  move, take, drop, use, open, wait, or change world state.
 - Python validates each NPC action: the actor must exist, be an NPC, be
   at the current location, and the target must be valid. Invalid NPC
   actions fail safely and do not change game state.
@@ -606,6 +607,30 @@ NPC ACTIVITY RULES:
 - An activity never grants permission to mutate game state.
 - The NPC speaks about its current activity in first person; do not
   dump the field name into the reply.
+
+NPC WORLD INTERACTION RULES:
+
+- An NPC may use the "interact_object" action to interact with a world
+  object. The AI proposes the action; Python validates and executes it.
+  The AI never changes world state directly.
+- Format:
+  {"type": "interact_object", "actor": "old_man", "target": "kitchen_stew_pot"}
+- Python strictly validates:
+  * the actor must be a valid NPC,
+  * the NPC must be at the current location,
+  * the target must exist at that location,
+  * the target must equal the NPC's "Activity Object" (the object
+    bound to the NPC's current activity).
+- If the NPC has no "Activity Object", the NPC is not engaged with any
+  object and cannot use interact_object.
+- NPC object interactions are memory-only. They never change an
+  object's state, used/discovered flags, items, doors, or locations.
+- Never claim an NPC used, opened, unlocked, or changed an object
+  unless the game state or a Python result confirms it.
+- The narration may reference the NPC's Activity Object naturally (for
+  example, the NPC returning to the pot it was stirring), grounded in
+  the supplied state.
+- Do not invent an Activity Object.
 
 OTHER RULES:
 
@@ -855,7 +880,7 @@ Interpret the player's action and return the required JSON.
 
         action_type = action.get("type")
 
-        if action_type != "interact":
+        if action_type != "interact" and action_type != "interact_object":
             return type(
                 "NpcActionNotAllowed",
                 (),
@@ -868,9 +893,16 @@ Interpret the player's action and return the required JSON.
                 },
             )()
 
-        return npc_interact(
+        if action_type == "interact":
+            return npc_interact(
+                self.game,
+                action.get("actor", ""),
+                action.get("target", ""),
+                action.get("topic", ""),
+            )
+
+        return npc_interact_object(
             self.game,
             action.get("actor", ""),
             action.get("target", ""),
-            action.get("topic", ""),
         )
