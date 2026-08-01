@@ -137,6 +137,17 @@ def create_new_game() -> GameState:
         relationships={
             "Traveler": 10,
         },
+        routine=[
+            "Tends the fire",
+            "Reads old books by the window",
+            "Prepares meals in the kitchen",
+            "Keeps watch over the house",
+        ],
+        schedule={
+            "12": "old_wooden_house",
+            "18": "kitchen",
+            "21": "old_wooden_house",
+        },
     )
 
     game.world.locations = {

@@ -26,6 +26,8 @@ class NPC:
     beliefs: List[str] = field(default_factory=list)
     goals: List[str] = field(default_factory=list)
     relationships: Dict[str, int] = field(default_factory=dict)
+    routine: List[str] = field(default_factory=list)
+    schedule: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass

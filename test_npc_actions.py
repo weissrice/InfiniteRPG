@@ -49,6 +49,45 @@ results.append(check(
     "Player actions omit actor",
     "For ordinary player actions, omit the \"actor\" field entirely" in system,
 ))
+results.append(check(
+    "Direction rule: player question uses no actor field",
+    "Emit a PLAYER action with NO \"actor\" field"
+    in normalized,
+))
+results.append(check(
+    "Direction rule: Player → NPC JSON example has no actor",
+    '"type": "interact", "target": "old_man", "topic": "where were you earlier?"'
+    in normalized,
+))
+results.append(check(
+    "Direction rule: NPC → player JSON example has actor",
+    '"type": "interact", "actor": "old_man", "target": "Traveler",'
+    in normalized
+    and '"asking the traveler to stay downstairs"}' in normalized,
+))
+results.append(check(
+    "Direction rule: NPC named in command is not the actor",
+    "The NPC named inside the player's command is NOT the actor"
+    in normalized,
+))
+results.append(check(
+    "Direction rule: addressing by name means the player is speaker",
+    "means the PLAYER is the speaker" in normalized,
+))
+results.append(check(
+    "Direction rule: only use actor for NPC-initiated interaction",
+    "Use \"actor\" only when the NPC itself initiates the interaction"
+    in normalized,
+))
+results.append(check(
+    "Valid-target rule: target must be player or another NPC present",
+    "\"target\" must be the player or another NPC present at the current location"
+    in normalized,
+))
+results.append(check(
+    "Valid-target rule: never target the actor NPC itself",
+    "Never target the actor NPC itself" in normalized,
+))
 
 
 class MockAI:
@@ -317,6 +356,57 @@ results.append(check(
     "Unknown actor rejected at unit level",
     res.success is False,
 ))
+
+print("\n=== 16. Manual-test repros: player commands naming an NPC must not flip actor ===")
+
+
+class CaptureAI:
+    def __init__(self):
+        self.sent = []
+
+    def ask(self, prompt, system, max_tokens, temperature, json_mode):
+        self.sent.append((prompt, system))
+        return json.dumps({
+            "narration": "The Old Man nods.",
+            "actions": [{
+                "type": "interact",
+                "target": "old_man",
+                "topic": "anything",
+            }],
+        })
+
+    def close(self):
+        pass
+
+
+for player_input in [
+    "where were you earlier?",
+    "tell old man I'm going upstairs",
+]:
+    engine = GameEngine()
+    engine.ai = CaptureAI()
+    old = builtins.input
+    builtins.input = lambda _="": ""
+    try:
+        engine.process_input(player_input)
+    finally:
+        builtins.input = old
+    sent_system = " ".join(engine.ai.sent[-1][1].split())
+    results.append(check(
+        f"No-actor rule carried for repro '{player_input}'",
+        "The NPC named inside the player's command is NOT the actor"
+        in sent_system,
+    ))
+    results.append(check(
+        f"Player → NPC mapping carried for repro '{player_input}'",
+        'Emit a PLAYER action with NO "actor" field'
+        in sent_system
+        and '"type": "interact", "target": "old_man",' in sent_system,
+    ))
+    results.append(check(
+        f"Address-by-name = player speaker carried for repro '{player_input}'",
+        "means the PLAYER is the speaker" in sent_system,
+    ))
 
 print()
 print(f"RESULT: {sum(results)}/{len(results)} checks passed")

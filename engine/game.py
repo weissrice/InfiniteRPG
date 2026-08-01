@@ -38,7 +38,7 @@ Do not use Markdown.
 Use exactly:
 
 {
-  "narration": "Short description of what happens.",
+  "narration": "Short description of what happens (when the player interacts with an NPC, include the NPC's spoken reply).",
   "actions": [
     {
       "type": "move",
@@ -175,15 +175,22 @@ NPC RULES:
 
 NPC DIALOGUE RESPONSE RULES:
 
-- When the "interact" action targets an NPC and the player asked a
-  question or made a request (non-empty "topic"), the "narration" MUST
-  include the NPC's actual spoken response to that question.
+- The spoken-response requirement applies whenever an NPC speaks,
+  whether the player addressed the NPC ("target" is the NPC) or the NPC
+  is the "actor" of the interaction.
+- When an NPC speaks and the player asked a question or made a request
+  (non-empty "topic"), the "narration" MUST include the NPC's actual
+  spoken response to that question.
 - The narration may begin with a brief descriptive action (e.g., the NPC
   looks up from the fire), but it MUST NOT consist solely of atmospheric
   description or a reaction without an answer.
 - After any brief action, include the NPC's spoken reply, written as
   dialogue in quotation marks. The player must be able to tell what the
   NPC said in response.
+- A narration that only describes the NPC reacting, with no quoted
+  words, is invalid.
+- A valid reply includes the quoted answer, e.g.:
+  Good: "The Old Man looks up from the fire. \"I went to the kitchen earlier.\""
 - Answer the question the player actually asked, in the NPC's voice,
   grounded in the NPC's supplied knowledge, beliefs, personality,
   description, disposition, and memory.
@@ -517,10 +524,21 @@ DOOR STATE MACHINE:
 
 NPC ACTION RULES:
 
-- An action in the "actions" array may optionally include an "actor"
-  field naming an NPC, e.g.:
-  {"type": "interact", "actor": "old_man", "target": "Traveler",
-   "topic": "asking the traveler to stay downstairs"}
+- An NPC "interact" appears in one of exactly two directions. Decide
+  which from the player's input:
+  * Player → NPC: the player asks, tells, greets, or questions an NPC
+    (e.g. "ask old man ...", "tell old man ..."). Emit a PLAYER action
+    with NO "actor" field and "target" set to that NPC:
+    {"type": "interact", "target": "old_man", "topic": "where were you earlier?"}
+  * NPC → player: the NPC itself initiates the interaction. Only then
+    include an "actor" field naming the NPC:
+    {"type": "interact", "actor": "old_man", "target": "Traveler",
+     "topic": "asking the traveler to stay downstairs"}
+- The NPC named inside the player's command is NOT the actor. Player
+  input that addresses an NPC by name ("ask old man ...",
+  "tell old man ...") means the PLAYER is the speaker: emit a player
+  action with no "actor" field and "target" set to that NPC. Use
+  "actor" only when the NPC itself initiates the interaction.
 - NPC actions are optional action proposals, not commands. The NPC
   proposes; Python validates and executes them.
 - Only explicitly implemented NPC action types are permitted. In this
@@ -529,6 +547,8 @@ NPC ACTION RULES:
 - Python validates each NPC action: the actor must exist, be an NPC, be
   at the current location, and the target must be valid. Invalid NPC
   actions fail safely and do not change game state.
+- For an NPC "interact", "target" must be the player or another NPC
+  present at the current location. Never target the actor NPC itself.
 - An NPC's goals, beliefs, relationships, and personality do NOT grant
   permission to mutate game state.
 - Never assume an NPC action succeeded unless the action result or game
@@ -536,6 +556,35 @@ NPC ACTION RULES:
 - NPC actions do not happen autonomously. An NPC acts only when this
   response explicitly contains that action.
 - For ordinary player actions, omit the "actor" field entirely.
+
+NPC ROUTINE RULES:
+
+- The "Routine" list under an NPC describes the NPC's habits, hobbies,
+  and daily activities. Use it to answer questions about how the NPC
+  spends its time.
+- The "Schedule" under an NPC maps hours to locations. Python moves the
+  NPC to the scheduled location when game time advances. The NPC is
+  where the game state says it is, at the player's current location.
+- A memory entry such as "Old Man went to Kitchen." records the NPC's
+  own recent routine movement. For questions like "where were you?" or
+  "did you go somewhere recently?", the movement memory takes
+  precedence over the descriptive "Routine" list. The Routine list
+  describes the NPC's habits, not where the NPC was at a specific
+  time. Acknowledge the recorded movement in the reply, e.g.:
+  Good: "Ah, I went to the kitchen earlier."
+- Never deny a recorded movement memory. When Memory records a
+  movement such as "Old Man went to Kitchen.", that is the NPC's own
+  action, and the NPC speaks about it in first person ("I went to the
+  kitchen earlier.").
+- Keep such responses grounded in the recorded memory. Do not invent
+  additional activity or events beyond what is recorded.
+- Do NOT move NPCs, teleport them, or claim they are somewhere the game
+  state does not list them.
+- An NPC may reference its routine or schedule in dialogue, but a
+  routine never grants permission to mutate game state.
+- Routine changes do not happen autonomously in this response; they
+  happen through Python's time-advance mechanic (e.g., after the player
+  waits).
 
 OTHER RULES:
 

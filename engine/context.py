@@ -63,7 +63,7 @@ def build_game_context(game: GameState) -> str:
 
         if location.npcs:
             lines.append("NPCs:")
-            lines.append("  (Note: Each NPC only knows what is listed in its own Knowledge section. Global world-state info above is NOT automatically known by any NPC. Beliefs are the NPC's subjective view and may be incorrect; game state remains authoritative. A listed Belief reflects the NPC's current opinion and should be expressed, not contradicted. Goals are what the NPC wants; they never change game state. Relationships are the NPC's subjective attitude toward others; they do not change game state.)")
+            lines.append("  (Note: Each NPC only knows what is listed in its own Knowledge section. Global world-state info above is NOT automatically known by any NPC. Beliefs are the NPC's subjective view and may be incorrect; game state remains authoritative. A listed Belief reflects the NPC's current opinion and should be expressed, not contradicted. Goals are what the NPC wants; they never change game state. Relationships are the NPC's subjective attitude toward others; they do not change game state. Routine is a descriptive list of the NPC's habits and hobbies; the Schedule maps hours to the location where Python moves the NPC.)")
 
             for npc_id in location.npcs:
                 npc = world.npcs.get(npc_id)
@@ -94,7 +94,7 @@ def build_game_context(game: GameState) -> str:
 
                     if npc.memory:
                         lines.append(
-                            "  Memory:"
+                            "  Memory: (recorded events - authoritative)"
                         )
 
                         for entry in npc.memory:
@@ -141,6 +141,40 @@ def build_game_context(game: GameState) -> str:
                             lines.append(
                                 f"    - {target}: {score}"
                             )
+
+                    if npc.routine:
+                        lines.append(
+                            "  Routine: (descriptive habits - "
+                            "NOT a record of specific events or movements)"
+                        )
+
+                        for activity in npc.routine:
+                            lines.append(
+                                f"    - {activity}"
+                            )
+
+                    if npc.schedule:
+                        lines.append(
+                            "  Schedule: (hour -> "
+                            "where Python moves the NPC)"
+                        )
+
+                        for hour, target_id in sorted(
+                            npc.schedule.items()
+                        ):
+                            target_location = world.locations.get(
+                                target_id
+                            )
+
+                            if target_location:
+                                lines.append(
+                                    f"    - {hour}:00 → "
+                                    f"{target_location.name}"
+                                )
+                            else:
+                                lines.append(
+                                    f"    - {hour}:00 → {target_id}"
+                                )
                 else:
                     lines.append(
                         f"- Unknown NPC ({npc_id})"

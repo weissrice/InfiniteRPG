@@ -20,6 +20,18 @@ results.append(check(
     "NPC DIALOGUE RESPONSE RULES:" in system,
 ))
 results.append(check(
+    "Rule applies whenever an NPC speaks",
+    "The spoken-response requirement applies whenever an NPC speaks" in normalized,
+))
+results.append(check(
+    "Rule covers player-addressed NPC (target = NPC)",
+    "whether the player addressed the NPC" in normalized,
+))
+results.append(check(
+    "Rule covers NPC as actor",
+    'the NPC is the "actor" of the interaction' in normalized,
+))
+results.append(check(
     "Narration must include a spoken response when topic is non-empty",
     "MUST include the NPC's actual spoken response" in normalized,
 ))
@@ -34,6 +46,20 @@ results.append(check(
 results.append(check(
     "Reply must be written as dialogue in quotation marks",
     "written as dialogue in quotation marks" in normalized,
+))
+results.append(check(
+    "Atmosphere-only narration explicitly invalid",
+    "A narration that only describes the NPC reacting, with no quoted words, is invalid"
+    in normalized,
+))
+results.append(check(
+    "Dialogue Good example present",
+    '"The Old Man looks up from the fire. "I went to the kitchen earlier.""'
+    in normalized,
+))
+results.append(check(
+    "Copyable atmosphere-only phrase removed from prompt",
+    "his kind eyes crinkling as he considers your question" not in normalized,
 ))
 results.append(check(
     "Must answer the question actually asked",
@@ -125,6 +151,75 @@ results.append(check(
 results.append(check(
     "Narration is not atmosphere-only",
     "At least, that's what I'd expect." in narration,
+))
+
+print("\n=== 4. Broadened rule applies when the NPC is the actor ===")
+
+captured_actor = {}
+
+
+class MockActorAI:
+    def ask(self, prompt, system, max_tokens, temperature, json_mode):
+        captured_actor["system"] = system
+        captured_actor["prompt"] = prompt
+        return json.dumps({
+            "narration": (
+                "The Old Man looks up from the fire, his kind eyes "
+                "softening as he answers your question."
+            ),
+            "actions": [{
+                "type": "interact",
+                "actor": "old_man",
+                "target": "Traveler",
+                "topic": "where were you earlier",
+            }],
+        })
+
+    def close(self):
+        pass
+
+
+engine = GameEngine()
+engine.ai = MockActorAI()
+old_input = builtins.input
+builtins.input = lambda _="": ""
+try:
+    actor_result = engine.process_input(
+        "ask old man: where were you earlier?"
+    )
+finally:
+    builtins.input = old_input
+
+actor_system = captured_actor["system"]
+results.append(check(
+    "Broadened scope rule carried for actor case",
+    "The spoken-response requirement applies whenever an NPC speaks"
+    in " ".join(actor_system.split()),
+))
+results.append(check(
+    "NPC-as-actor branch explicitly covered in prompt",
+    'the NPC is the "actor" of the interaction'
+    in " ".join(actor_system.split()),
+))
+results.append(check(
+    "Atmosphere-only ban still present for actor case",
+    "MUST NOT consist solely of atmospheric"
+    in " ".join(actor_system.split()),
+))
+results.append(check(
+    "Spoken answer requirement present for actor case",
+    "MUST include the NPC's actual spoken response"
+    in " ".join(actor_system.split()),
+))
+results.append(check(
+    "No-actor rule carried for 'where were you earlier?' repro",
+    "The NPC named inside the player's command is NOT the actor"
+    in " ".join(actor_system.split()),
+))
+results.append(check(
+    "Player → NPC mapping carried for repro",
+    'Emit a PLAYER action with NO "actor" field'
+    in " ".join(actor_system.split()),
 ))
 
 print()

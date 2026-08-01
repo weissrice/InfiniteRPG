@@ -3,6 +3,7 @@ from typing import Any, Dict
 
 from .state import GameState, Interactable, NPC
 from .generation import generate_location
+from .routines import advance_npc_routines
 from .world import add_generated_location
 
 
@@ -964,6 +965,18 @@ def wait(
     mins = remaining % 60
 
     game.world.time = f"{hours:02d}:{mins:02d}"
+
+    routine_changes = advance_npc_routines(game)
+
+    if routine_changes:
+        return ActionResult(
+            True,
+            f"You wait for {minutes} minutes.",
+            {
+                "minutes": minutes,
+                "routine_changes": routine_changes,
+            },
+        )
 
     return ActionResult(
         True,
