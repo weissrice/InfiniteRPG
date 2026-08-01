@@ -81,11 +81,25 @@ def build_game_context(game: GameState) -> str:
                         f"  Disposition: {npc.disposition}"
                     )
 
+                    if npc.personality:
+                        lines.append(
+                            "  Personality:"
+                        )
+
+                        for trait in npc.personality:
+                            lines.append(
+                                f"    - {trait}"
+                            )
+
                     if npc.memory:
                         lines.append(
-                            "  Memory: "
-                            + "; ".join(npc.memory)
+                            "  Memory:"
                         )
+
+                        for entry in npc.memory:
+                            lines.append(
+                                f"    - {entry}"
+                            )
                 else:
                     lines.append(
                         f"- Unknown NPC ({npc_id})"

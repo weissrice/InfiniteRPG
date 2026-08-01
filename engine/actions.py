@@ -194,6 +194,22 @@ def _find_interactable(
     return None
 
 
+MAX_NPC_MEMORY = 20
+
+
+def _record_npc_memory(
+    npc: NPC,
+    entry: str,
+) -> None:
+    """Record a compact, deduplicated memory entry on an NPC."""
+
+    if entry not in npc.memory:
+        npc.memory.append(entry)
+
+    if len(npc.memory) > MAX_NPC_MEMORY:
+        del npc.memory[:-MAX_NPC_MEMORY]
+
+
 def _find_npc(
     game: GameState,
     target: str,
@@ -227,6 +243,7 @@ def _find_npc(
 def interact(
     game: GameState,
     target: str,
+    topic: str = "",
 ) -> ActionResult:
     """Interact with an object or NPC at the current location."""
 
@@ -278,9 +295,19 @@ def interact(
     npc = _find_npc(game, target)
 
     if npc is not None:
-        npc.memory.append(
-            "The player spoke to this NPC."
-        )
+        topic_lower = topic.lower().strip()
+
+        if topic_lower:
+            _record_npc_memory(
+                npc,
+                f"The player asked {npc.name} about "
+                f"{topic_lower}.",
+            )
+        else:
+            _record_npc_memory(
+                npc,
+                f"The player spoke with {npc.name}.",
+            )
 
         return ActionResult(
             True,
@@ -292,6 +319,7 @@ def interact(
                 "npc": npc.id,
                 "name": npc.name,
                 "disposition": npc.disposition,
+                "memory": list(npc.memory),
             },
         )
 

@@ -113,6 +113,11 @@ def create_new_game() -> GameState:
             "over the low flames. His eyes are tired but kind."
         ),
         disposition=10,
+        personality=[
+            "kind",
+            "cautious",
+            "reserved",
+        ],
     )
 
     game.world.locations = {

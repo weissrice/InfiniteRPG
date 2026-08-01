@@ -20,6 +20,7 @@ class NPC:
     location: str
     description: str = ""
     disposition: int = 0
+    personality: List[str] = field(default_factory=list)
     memory: List[str] = field(default_factory=list)
 
 

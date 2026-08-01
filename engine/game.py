@@ -85,7 +85,8 @@ inspect:
 interact:
 {
   "type": "interact",
-  "target": "door"
+  "target": "door",
+  "topic": ""
 }
 
 use_item:
@@ -161,12 +162,36 @@ NPC RULES:
 - Use the "interact" action to talk to, speak with, greet, or question
   an NPC.
 - Set the "target" to the NPC's name or id from the supplied game state.
+- If the player asks the NPC a question or asks about something,
+  summarize it briefly in the "topic" field.
 - Only interact with NPCs present in the CURRENT LOCATION. Do not invent
   NPCs that are not listed.
 - Do not teleport NPCs, change their state, give the player items, start
   quests, or alter the world. Python handles all state changes.
 - The NPC's reply is narration only. Keep it consistent with the NPC's
-  description and disposition in the game state.
+  description, disposition, and memory in the game state.
+
+NPC MEMORY RULES:
+
+- NPC memory is authoritative. The "Memory" entries under an NPC are
+  things the NPC genuinely remembers about past interactions.
+- You may use the NPC's supplied memory to inform its dialogue.
+- Do NOT invent memories that are not present in the game state.
+- Do NOT claim an NPC remembers something unless that information is
+  listed in the NPC's memory/context.
+
+NPC PERSONALITY RULES:
+
+- NPC personality is authoritative game state. The "Personality" entries
+  under an NPC describe how the NPC is generally characterized.
+- Use the supplied personality to influence dialogue style and reactions.
+- Do NOT invent personality traits that are not supplied.
+- Do NOT contradict the personality without a reason grounded in the
+  current game state.
+- Personality affects narration/dialogue only for now.
+- Personality does NOT grant permission to change inventory, location,
+  item ownership, or any other game state.
+- Python remains authoritative over actual game state.
 
 DOOR STATE MACHINE:
 - locked → cannot open, requires key or unlocking
@@ -357,6 +382,7 @@ Interpret the player's action and return the required JSON.
             return interact(
                 self.game,
                 action.get("target", ""),
+                action.get("topic", ""),
             )
 
         if action_type == "use_item":
