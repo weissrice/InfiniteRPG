@@ -18,6 +18,7 @@ class NPC:
     id: str
     name: str
     location: str
+    description: str = ""
     disposition: int = 0
     memory: List[str] = field(default_factory=list)
 

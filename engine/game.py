@@ -156,6 +156,18 @@ INTERACTION RULES:
   If CURRENT STATE says "unlocked", the object is unlocked regardless of its name.
   If CURRENT STATE says "open", the object is open and can be passed through.
 
+NPC RULES:
+
+- Use the "interact" action to talk to, speak with, greet, or question
+  an NPC.
+- Set the "target" to the NPC's name or id from the supplied game state.
+- Only interact with NPCs present in the CURRENT LOCATION. Do not invent
+  NPCs that are not listed.
+- Do not teleport NPCs, change their state, give the player items, start
+  quests, or alter the world. Python handles all state changes.
+- The NPC's reply is narration only. Keep it consistent with the NPC's
+  description and disposition in the game state.
+
 DOOR STATE MACHINE:
 - locked → cannot open, requires key or unlocking
 - unlocked → can be opened with "open" action

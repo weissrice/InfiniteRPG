@@ -1,6 +1,6 @@
 ﻿from typing import Any, Dict
 
-from .state import GameState, Interactable
+from .state import GameState, Interactable, NPC
 from .generation import generate_location
 from .world import add_generated_location
 
@@ -194,60 +194,110 @@ def _find_interactable(
     return None
 
 
+def _find_npc(
+    game: GameState,
+    target: str,
+) -> NPC | None:
+    """Find an NPC at the player's current location."""
+
+    location = game.current_location()
+
+    if location is None:
+        return None
+
+    target_lower = target.lower().strip()
+
+    for npc_id in location.npcs:
+        npc = game.world.npcs.get(npc_id)
+
+        if npc is None:
+            continue
+
+        if (
+            npc.id.lower() == target_lower
+            or npc.name.lower() == target_lower
+            or target_lower in npc.name.lower()
+            or npc.name.lower() in target_lower
+        ):
+            return npc
+
+    return None
+
+
 def interact(
     game: GameState,
     target: str,
 ) -> ActionResult:
-    """Interact with an object at the current location."""
+    """Interact with an object or NPC at the current location."""
 
     obj = _find_interactable(game, target)
 
-    if obj is None:
+    if obj is not None:
+        obj.discovered = True
+
+        if obj.state == "locked":
+            return ActionResult(
+                True,
+                (
+                    f"The {obj.name.lower()} is locked. "
+                    "You notice an old keyhole."
+                ),
+                {
+                    "interactable": obj.id,
+                    "state": obj.state,
+                    "discovered": True,
+                },
+            )
+
+        if obj.state == "unlocked":
+            return ActionResult(
+                True,
+                f"The {obj.name.lower()} is unlocked.",
+                {
+                    "interactable": obj.id,
+                    "state": obj.state,
+                    "discovered": True,
+                },
+            )
+
+        if not obj.memory:
+            obj.memory.append(
+                "The player interacted with this object."
+            )
+
         return ActionResult(
-            False,
-            f"You cannot find '{target}' here.",
+            True,
+            obj.description,
+            {
+                "interactable": obj.id,
+                "state": obj.state,
+                "discovered": True,
+            },
         )
 
-    obj.discovered = True
+    npc = _find_npc(game, target)
 
-    if obj.state == "locked":
+    if npc is not None:
+        npc.memory.append(
+            "The player spoke to this NPC."
+        )
+
         return ActionResult(
             True,
             (
-                f"The {obj.name.lower()} is locked. "
-                "You notice an old keyhole."
+                f"You speak to {npc.name}. "
+                f"{npc.description}"
             ),
             {
-                "interactable": obj.id,
-                "state": obj.state,
-                "discovered": True,
+                "npc": npc.id,
+                "name": npc.name,
+                "disposition": npc.disposition,
             },
-        )
-
-    if obj.state == "unlocked":
-        return ActionResult(
-            True,
-            f"The {obj.name.lower()} is unlocked.",
-            {
-                "interactable": obj.id,
-                "state": obj.state,
-                "discovered": True,
-            },
-        )
-
-    if not obj.memory:
-        obj.memory.append(
-            "The player interacted with this object."
         )
 
     return ActionResult(
-        True,
-        obj.description,
-        {
-            "interactable": obj.id,
-            "state": obj.state,
-            "discovered": True,
-        },
+        False,
+        f"You cannot find '{target}' here.",
     )
 
 

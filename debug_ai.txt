@@ -1,9 +1,1 @@
-{
-  "narration": "Traveler inspects the surroundings of the Master Suite.",
-  "actions": [
-    {
-      "type": "inspect",
-      "item": "surroundings"
-    }
-  ]
-}
+{"narration": "The Old Man looks up from the fire and says, 'Ah, a visitor. Make yourself at home.'", "actions": [{"type": "interact", "target": "old man"}]}

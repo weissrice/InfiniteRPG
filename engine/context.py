@@ -71,6 +71,21 @@ def build_game_context(game: GameState) -> str:
                     lines.append(
                         f"- {npc.name}"
                     )
+                    lines.append(
+                        f"  id: {npc.id}"
+                    )
+                    lines.append(
+                        f"  Description: {npc.description}"
+                    )
+                    lines.append(
+                        f"  Disposition: {npc.disposition}"
+                    )
+
+                    if npc.memory:
+                        lines.append(
+                            "  Memory: "
+                            + "; ".join(npc.memory)
+                        )
                 else:
                     lines.append(
                         f"- Unknown NPC ({npc_id})"

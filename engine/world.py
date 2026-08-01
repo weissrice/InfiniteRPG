@@ -1,4 +1,4 @@
-﻿from .state import GameState, Location, Interactable
+﻿from .state import GameState, Location, Interactable, NPC
 
 
 def create_new_game() -> GameState:
@@ -21,6 +21,9 @@ def create_new_game() -> GameState:
         items=[
             "Rusty Key",
             "Torn Note",
+        ],
+        npcs=[
+            "old_man",
         ],
         interactables=[],
         symbol="🏠",
@@ -101,6 +104,17 @@ def create_new_game() -> GameState:
         unlock_items=["Rusty Key"],
     )
 
+    old_man = NPC(
+        id="old_man",
+        name="Old Man",
+        location="old_wooden_house",
+        description=(
+            "An elderly man sits by the fireplace, warming his hands "
+            "over the low flames. His eyes are tired but kind."
+        ),
+        disposition=10,
+    )
+
     game.world.locations = {
         house.id: house,
         forest_edge.id: forest_edge,
@@ -111,6 +125,10 @@ def create_new_game() -> GameState:
 
     game.world.interactables = {
         locked_upstairs_door.id: locked_upstairs_door,
+    }
+
+    game.world.npcs = {
+        old_man.id: old_man,
     }
 
     game.player.location = house.id
