@@ -118,6 +118,12 @@ def create_new_game() -> GameState:
             "cautious",
             "reserved",
         ],
+        knowledge=[
+            "The house has an upstairs floor.",
+            "The house has been here for many years.",
+            "The upstairs door is old and has a lock.",
+            "The northern road leads toward the forest.",
+        ],
     )
 
     game.world.locations = {

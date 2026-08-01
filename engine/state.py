@@ -22,6 +22,7 @@ class NPC:
     disposition: int = 0
     personality: List[str] = field(default_factory=list)
     memory: List[str] = field(default_factory=list)
+    knowledge: List[str] = field(default_factory=list)
 
 
 @dataclass
