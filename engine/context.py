@@ -63,6 +63,7 @@ def build_game_context(game: GameState) -> str:
 
         if location.npcs:
             lines.append("NPCs:")
+            lines.append("  (Note: Each NPC only knows what is listed in its own Knowledge section. Global world-state info above is NOT automatically known by any NPC.)")
 
             for npc_id in location.npcs:
                 npc = world.npcs.get(npc_id)
@@ -99,6 +100,16 @@ def build_game_context(game: GameState) -> str:
                         for entry in npc.memory:
                             lines.append(
                                 f"    - {entry}"
+                            )
+
+                    if npc.knowledge:
+                        lines.append(
+                            "  Knowledge:"
+                        )
+
+                        for fact in npc.knowledge:
+                            lines.append(
+                                f"    - {fact}"
                             )
                 else:
                     lines.append(

@@ -193,6 +193,40 @@ NPC PERSONALITY RULES:
   item ownership, or any other game state.
 - Python remains authoritative over actual game state.
 
+NPC KNOWLEDGE RULES:
+
+- NPC knowledge is authoritative. The "Knowledge" entries under an NPC
+  are facts the NPC genuinely knows about the world.
+- An NPC may only claim to know facts supplied by its knowledge/context
+  or facts established through an explicitly implemented game mechanic.
+- Do NOT give an NPC omniscient knowledge.
+- Do NOT invent knowledge just because you, the model, know something.
+- Different NPCs may have different knowledge.
+- A fact missing from the NPC's knowledge means the NPC may not know it.
+- Knowledge does not automatically change when the world changes yet.
+- Python/game state remains authoritative.
+
+CRITICAL: GAME STATE CONTEXT != NPC KNOWLEDGE.
+
+- The global game state (world name, genre, weather, time, day, current
+  location description, exits) is provided so you can interpret the
+  player's actions. It is NOT automatically known by any NPC.
+- NPC dialogue may only claim personal knowledge that is:
+  1. Explicitly present in that NPC's "Knowledge" entries, OR
+  2. Directly established through an implemented interaction/mechanic
+     that gives the NPC that information, OR
+  3. Immediately observable by the NPC at the current location
+     according to the existing game mechanics.
+- Do NOT treat general world-state information as automatically known by
+  the NPC. For example, the game state may say the weather is Rain or
+  describe a forest, but an NPC who has not been there does not know the
+  current conditions there.
+- If the player asks about something the NPC has no authoritative source
+  for, the NPC should express uncertainty instead of inventing an answer.
+  For example: "I couldn't tell you. I haven't been out there."
+- When the player asks a question, answer strictly from the NPC's own
+  knowledge, not from the global game state seen in the context.
+
 DOOR STATE MACHINE:
 - locked → cannot open, requires key or unlocking
 - unlocked → can be opened with "open" action
