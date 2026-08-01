@@ -1,0 +1,127 @@
+from .state import GameState
+
+
+def build_game_context(game: GameState) -> str:
+    """
+    Convert the current game state into a compact context
+    that can be given to the AI.
+    """
+
+    player = game.player
+    world = game.world
+    location = game.current_location()
+
+    lines = [
+        "=== WORLD STATE ===",
+        f"World: {world.name}",
+        f"Genre: {world.genre}",
+        f"Day: {world.day}",
+        f"Time: {world.time}",
+        f"Weather: {world.weather}",
+        "",
+        "=== PLAYER ===",
+        f"Name: {player.name}",
+        f"HP: {player.hp}/{player.max_hp}",
+        f"Location: {player.location}",
+        "Inventory:",
+    ]
+
+    if player.inventory:
+        for item in player.inventory:
+            lines.append(f"- {item}")
+    else:
+        lines.append("- Empty")
+
+    if location:
+        lines.extend([
+            "",
+            "=== CURRENT LOCATION ===",
+            f"Name: {location.name}",
+            f"Description: {location.description}",
+        ])
+
+        if location.exits:
+            lines.append("Exits:")
+
+            for direction, destination in location.exits.items():
+                destination_location = world.locations.get(destination)
+
+                if destination_location:
+                    lines.append(
+                        f"- {direction} → {destination_location.name}"
+                    )
+                else:
+                    lines.append(
+                        f"- {direction} → Unknown"
+                    )
+
+        if location.items:
+            lines.append("Items:")
+
+            for item in location.items:
+                lines.append(f"- {item}")
+
+        if location.npcs:
+            lines.append("NPCs:")
+
+            for npc_id in location.npcs:
+                npc = world.npcs.get(npc_id)
+
+                if npc:
+                    lines.append(
+                        f"- {npc.name}"
+                    )
+                else:
+                    lines.append(
+                        f"- Unknown NPC ({npc_id})"
+                    )
+
+        # -----------------------------------------------------
+        # INTERACTABLE OBJECTS
+        # -----------------------------------------------------
+
+        if location.interactables:
+            lines.append("Interactable Objects:")
+            lines.append("  (IMPORTANT: The CURRENT STATE field is authoritative. Object names may reflect their original/default state and should not be used to infer current state.)")
+
+            for interactable_id in location.interactables:
+                obj = world.interactables.get(interactable_id)
+
+                if obj:
+                    lines.append(
+                        f"- {obj.name}"
+                    )
+                    lines.append(
+                        f"  id: {obj.id}"
+                    )
+                    lines.append(
+                        f"  CURRENT STATE: {obj.state}"
+                    )
+                    lines.append(
+                        f"  Description: {obj.description}"
+                    )
+
+                    if obj.discovered:
+                        lines.append(
+                            "  Discovered: yes"
+                        )
+                    else:
+                        lines.append(
+                            "  Discovered: no"
+                        )
+
+                    if obj.used:
+                        lines.append(
+                            "  Used: yes"
+                        )
+                    else:
+                        lines.append(
+                            "  Used: no"
+                        )
+
+                else:
+                    lines.append(
+                        f"- Unknown interactable ({interactable_id})"
+                    )
+
+    return "\n".join(lines)

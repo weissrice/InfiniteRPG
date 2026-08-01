@@ -1,0 +1,9 @@
+{
+  "narration": "Traveler inspects the surroundings of the Master Suite.",
+  "actions": [
+    {
+      "type": "inspect",
+      "item": "surroundings"
+    }
+  ]
+}
