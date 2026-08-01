@@ -75,3 +75,35 @@ def advance_npc_routines(game: GameState) -> List[str]:
         )
 
     return changes
+
+
+def update_npc_activities(game: GameState) -> List[str]:
+    """Set each NPC's current activity from its activity data.
+
+    The current hour drives the activity table. This is fully
+    deterministic and data-driven; no AI decision-making. Activity
+    updates apply even when the NPC does not change location.
+
+    Returns a list of human-readable activity change descriptions.
+    """
+
+    hour = _current_hour(game)
+
+    changes: List[str] = []
+
+    for npc in game.world.npcs.values():
+        activity = npc.activity_by_time.get(hour)
+
+        if activity is None:
+            continue
+
+        if activity == npc.current_activity:
+            continue
+
+        npc.current_activity = activity
+
+        changes.append(
+            f"{npc.name} is now {activity}."
+        )
+
+    return changes

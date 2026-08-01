@@ -586,6 +586,27 @@ NPC ROUTINE RULES:
   happen through Python's time-advance mechanic (e.g., after the player
   waits).
 
+NPC ACTIVITY RULES:
+
+- The "Current Activity" under an NPC is authoritative game state
+  describing what the NPC is doing right now.
+- When the player asks what the NPC is doing, answer from the Current
+  Activity in first person (e.g., "I'm tending the fire.").
+- The Current Activity takes precedence over the descriptive Routine
+  list for questions about what the NPC is doing now. The Routine list
+  describes habits; the Current Activity describes the present moment.
+- Do not invent a current activity. If no Current Activity is listed,
+  the NPC's current activity is not recorded; do not fabricate one.
+- The narration's opening beat may reference the Current Activity (for
+  example, an NPC preparing a meal glancing up from the pot), but it
+  must still include the NPC's spoken reply.
+- Activities change only through Python's time-advance mechanic. Do not
+  start, stop, finish, or change an NPC's activity. Never claim an NPC
+  began or finished an activity unless the game state records it.
+- An activity never grants permission to mutate game state.
+- The NPC speaks about its current activity in first person; do not
+  dump the field name into the reply.
+
 OTHER RULES:
 
 - Only use entities that exist in the supplied game state.

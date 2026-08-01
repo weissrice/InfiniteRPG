@@ -28,6 +28,8 @@ class NPC:
     relationships: Dict[str, int] = field(default_factory=dict)
     routine: List[str] = field(default_factory=list)
     schedule: Dict[str, str] = field(default_factory=dict)
+    current_activity: str = ""
+    activity_by_time: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass

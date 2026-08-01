@@ -148,6 +148,12 @@ def create_new_game() -> GameState:
             "18": "kitchen",
             "21": "old_wooden_house",
         },
+        current_activity="tending the fire",
+        activity_by_time={
+            "12": "tending the fire",
+            "18": "preparing the evening meal",
+            "21": "keeping watch over the house",
+        },
     )
 
     game.world.locations = {

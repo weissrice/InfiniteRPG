@@ -78,6 +78,14 @@ def build_game_context(game: GameState) -> str:
                     lines.append(
                         f"  Description: {npc.description}"
                     )
+
+                    if npc.current_activity:
+                        lines.append(
+                            "  Current Activity: "
+                            f"{npc.current_activity} "
+                            "(authoritative current state)"
+                        )
+
                     lines.append(
                         f"  Disposition: {npc.disposition}"
                     )
