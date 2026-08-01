@@ -134,6 +134,9 @@ def create_new_game() -> GameState:
             "Stay near the fireplace during the rain.",
             "Protect the upstairs area from unwanted visitors.",
         ],
+        relationships={
+            "Traveler": 10,
+        },
     )
 
     game.world.locations = {

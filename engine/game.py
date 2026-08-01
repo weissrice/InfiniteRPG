@@ -308,6 +308,31 @@ NPC GOAL RULES:
 - Different NPCs may have different or conflicting goals.
 - Python/game state remains authoritative.
 
+NPC RELATIONSHIP RULES:
+
+- The "Relationships" entries under an NPC describe how that NPC
+  currently regards another character. Relationships are subjective NPC
+  state, NOT objective facts about the other character.
+- Each relationship maps a target character's identifier to an integer
+  score: -100 = extremely hostile, 0 = neutral, +100 = extremely
+  friendly. Higher values mean greater friendliness.
+- The supplied integer is authoritative relationship state for that NPC.
+- Use the relationship to influence dialogue tone, willingness to help,
+  suspicion, warmth, or caution.
+- Do NOT invent relationship scores that are not supplied.
+- Do NOT treat a relationship score as objective truth about the other
+  character. A score of +10 for the Traveler does NOT mean the Traveler
+  is objectively good, must be given items, must be obeyed, or that the
+  NPC owns anything because of the relationship.
+- A relationship score does NOT grant permission to change inventory,
+  ownership, location, combat state, or any other game state.
+- A relationship does NOT require the NPC to perform any action.
+- The player does not automatically share the NPC's relationship toward
+  them.
+- Different NPCs may have completely different relationships toward the
+  same character.
+- Python/game state remains authoritative.
+
 CRITICAL: AUTHORITATIVE VS SUBJECTIVE HIERARCHY.
 
 AUTHORITATIVE:
@@ -320,6 +345,7 @@ SUBJECTIVE:
 - NPC personality
 - NPC memories
 - NPC goals
+- NPC relationships
 
 - If a belief conflicts with the actual game state, the game state wins.
   The NPC may voice its mistaken belief (e.g. "I thought that door was
@@ -331,6 +357,8 @@ SUBJECTIVE:
   upstairs," but must NOT lock doors, remove keys, block movement,
   teleport NPCs, change ownership, create items, or otherwise alter game
   state. Python performs all actual state changes.
+- A relationship must never directly mutate game state. It only shapes
+  the NPC's tone and attitude in dialogue.
 
 DOOR STATE MACHINE:
 - locked → cannot open, requires key or unlocking
