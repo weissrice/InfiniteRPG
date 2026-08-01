@@ -63,7 +63,7 @@ def build_game_context(game: GameState) -> str:
 
         if location.npcs:
             lines.append("NPCs:")
-            lines.append("  (Note: Each NPC only knows what is listed in its own Knowledge section. Global world-state info above is NOT automatically known by any NPC.)")
+            lines.append("  (Note: Each NPC only knows what is listed in its own Knowledge section. Global world-state info above is NOT automatically known by any NPC. Beliefs are the NPC's subjective view and may be incorrect; game state remains authoritative. A listed Belief reflects the NPC's current opinion and should be expressed, not contradicted.)")
 
             for npc_id in location.npcs:
                 npc = world.npcs.get(npc_id)
@@ -110,6 +110,16 @@ def build_game_context(game: GameState) -> str:
                         for fact in npc.knowledge:
                             lines.append(
                                 f"    - {fact}"
+                            )
+
+                    if npc.beliefs:
+                        lines.append(
+                            "  Beliefs:"
+                        )
+
+                        for belief in npc.beliefs:
+                            lines.append(
+                                f"    - {belief}"
                             )
                 else:
                     lines.append(

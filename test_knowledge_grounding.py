@@ -100,8 +100,12 @@ results.append(check(
     "The northern road leads toward the forest." in captured["prompt"],
 ))
 results.append(check(
-    "Forest facts not present anywhere in prompt",
-    "quiet" not in captured["prompt"] and "quietly" not in captured["prompt"],
+    "Forest conditions appear only as Beliefs, not Knowledge",
+    "quiet" not in context.split("Knowledge:")[1].split("Beliefs:")[0],
+))
+results.append(check(
+    "Forest condition belief present and labeled subjective",
+    "The forest is likely quiet this time of day." in context,
 ))
 results.append(check(
     "Interact action executed",

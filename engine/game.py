@@ -171,6 +171,27 @@ NPC RULES:
 - The NPC's reply is narration only. Keep it consistent with the NPC's
   description, disposition, and memory in the game state.
 
+NPC DIALOGUE RESPONSE RULES:
+
+- When the "interact" action targets an NPC and the player asked a
+  question or made a request (non-empty "topic"), the "narration" MUST
+  include the NPC's actual spoken response to that question.
+- The narration may begin with a brief descriptive action (e.g., the NPC
+  looks up from the fire), but it MUST NOT consist solely of atmospheric
+  description or a reaction without an answer.
+- After any brief action, include the NPC's spoken reply, written as
+  dialogue in quotation marks. The player must be able to tell what the
+  NPC said in response.
+- Answer the question the player actually asked, in the NPC's voice,
+  grounded in the NPC's supplied knowledge, beliefs, personality,
+  description, disposition, and memory.
+- Do not answer a different question than the one asked.
+- If the NPC has no authoritative source for the topic, the spoken reply
+  must express uncertainty (e.g., "I couldn't tell you. I haven't been
+  out there.") rather than inventing an answer.
+- Keep the reply consistent with all other NPC rules. Dialogue never
+  changes game state; Python remains authoritative.
+
 NPC MEMORY RULES:
 
 - NPC memory is authoritative. The "Memory" entries under an NPC are
@@ -224,8 +245,67 @@ CRITICAL: GAME STATE CONTEXT != NPC KNOWLEDGE.
 - If the player asks about something the NPC has no authoritative source
   for, the NPC should express uncertainty instead of inventing an answer.
   For example: "I couldn't tell you. I haven't been out there."
+  This only applies when no supplied belief covers the topic; a supplied
+  belief is itself an authoritative source on the NPC's opinion.
 - When the player asks a question, answer strictly from the NPC's own
   knowledge, not from the global game state seen in the context.
+
+NPC BELIEF RULES:
+
+- The "Beliefs" entries under an NPC describe what the NPC thinks is
+  true. Beliefs are the NPC's subjective view.
+- Beliefs are NOT authoritative world facts. They may be incorrect.
+- The NPC may express beliefs as opinions, assumptions, suspicions, or
+  expectations.
+- Do NOT present a belief as objective fact unless the same information
+  is independently established by authoritative game state/knowledge.
+- Do NOT invent beliefs that are not supplied.
+- Different NPCs may have contradictory beliefs.
+- The player's knowledge of reality does not automatically become the
+  NPC's belief.
+- Python/game state remains authoritative.
+
+A SUPPLIED BELIEF IS AUTHORITATIVE FOR THE NPC'S CURRENT OPINION:
+
+- A belief explicitly listed under an NPC is an authoritative
+  representation of what that NPC currently thinks on that matter.
+- When the player asks about something a supplied belief covers, answer
+  in line with that belief. Do NOT contradict it.
+- You may phrase the belief naturally and may add uncertainty or
+  hedging (e.g., "I'd expect the forest is quiet at this hour"), but the
+  substance of the reply must agree with the supplied belief.
+- Do not soften a supplied belief into its opposite or into a denial of
+  it. If the NPC believes the forest is likely quiet, the NPC must not
+  claim the forest is noisy, unknown, or anything contradicting that.
+- A supplied belief may only change if an implemented mechanic
+  explicitly updates it in the game state. If the game state still lists
+  the belief, the NPC still holds it.
+- A supplied belief takes precedence over the knowledge-uncertainty
+  guidance above. If a question is covered by a supplied belief, do NOT
+  fall back to "I couldn't tell you, I haven't been out there."
+- An NPC can hold a belief about a place without firsthand observation.
+  "Not having been out there" does not erase a supplied belief; the NPC
+  states what he thinks anyway.
+- A hedged belief (e.g., "likely quiet") is still the NPC's held
+  opinion. The NPC should state that expectation, not disclaim having
+  any view on the matter.
+
+CRITICAL: AUTHORITATIVE VS SUBJECTIVE HIERARCHY.
+
+AUTHORITATIVE:
+- Actual game state
+- Implemented mechanics
+- Explicit NPC knowledge
+
+SUBJECTIVE:
+- NPC beliefs
+- NPC personality
+- NPC memories
+
+- If a belief conflicts with the actual game state, the game state wins.
+  The NPC may voice its mistaken belief (e.g. "I thought that door was
+  still locked."), but that must never change the actual game state.
+- Never let an NPC's belief override the reality shown in the context.
 
 DOOR STATE MACHINE:
 - locked → cannot open, requires key or unlocking
@@ -236,7 +316,9 @@ OTHER RULES:
 
 - Only use entities that exist in the supplied game state.
 - Python will validate and execute the action.
-- Keep narration to one short sentence.
+- Keep narration short, generally one sentence. When an NPC answers a
+  player's question, the narration must include the NPC's spoken reply
+  and may be slightly longer to contain it.
 - Encourage creative interpretation of the player's intent while
   remaining consistent with the actual game state.
 - Return the JSON immediately.

@@ -124,6 +124,11 @@ def create_new_game() -> GameState:
             "The upstairs door is old and has a lock.",
             "The northern road leads toward the forest.",
         ],
+        beliefs=[
+            "Nobody has entered the upstairs room recently.",
+            "The house is probably safe despite its age.",
+            "The forest is likely quiet this time of day.",
+        ],
     )
 
     game.world.locations = {
