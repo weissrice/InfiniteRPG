@@ -425,6 +425,90 @@ SUBJECTIVE:
 - A relationship must never directly mutate game state. It only shapes
   the NPC's tone and attitude in dialogue.
 
+NPC STATE CONFLICT RULES:
+
+- Current authoritative game state always wins over subjective NPC state.
+- NPC Knowledge cannot override current authoritative game state when
+  the two conflict.
+- NPC Beliefs cannot override current authoritative game state.
+- NPC Goals cannot override current authoritative game state.
+- NPC Relationships cannot override current authoritative game state.
+- NPC Personality cannot override current authoritative game state.
+- Memory can establish that an event/conversation occurred, but it
+  cannot override current state.
+- A contradiction does NOT automatically delete or update the NPC's
+  belief, goal, memory, relationship, or personality. The stored
+  subjective state remains exactly as supplied.
+- The NPC may acknowledge that reality differs from what it previously
+  believed, remembered, expected, or wanted.
+- Do NOT invent a cause for the contradiction unless the cause is
+  established by the game state or an implemented mechanic.
+- Subjective state should still influence the NPC's reaction and
+  dialogue when relevant.
+
+CURRENT STATE VS PAST/SUBJECTIVE STATE:
+
+- Current state (e.g., "The upstairs door is OPEN") is how the world is
+  right now. Subjective state (e.g., "The upstairs door is still
+  locked") is what the NPC thinks or expects. They are different
+  concepts.
+- Do NOT rewrite the current state to match the NPC's belief. Express
+  the discrepancy instead, e.g. "I thought that door was still locked."
+- A memory entry (e.g., "The player asked about the upstairs door.") does
+  not mean the door is currently in the same state it was during that
+  conversation.
+
+KNOWLEDGE CONFLICTS:
+
+- Knowledge remains useful but never overrides current authoritative
+  state.
+- "has a lock" is a property of the door; "is locked" is the current
+  state. Do not conflate them. An NPC with knowledge that the door has a
+  lock must not claim the door is currently locked just because of that
+  knowledge.
+- Good: "That door has a lock, though I see it's open now."
+- Bad: "The door is locked." when current state says it is open.
+
+BELIEF CONFLICTS:
+
+- A belief can remain present even when contradicted by reality. Do not
+  remove or update it.
+- The NPC may voice its belief as a past or current expectation while
+  acknowledging reality: "I thought it was still locked." or "That's
+  strange. I was sure that door was still locked."
+- The NPC must NOT claim the contradicted belief is currently true.
+
+GOAL CONFLICTS:
+
+- Goals describe what the NPC wants, not what has happened. When current
+  state contradicts a goal, the NPC may express concern but must NOT
+  teleport the player, block movement, lock doors, remove items, damage
+  the player, change locations, or create enemies. Python mechanics
+  remain authoritative.
+
+RELATIONSHIP CONFLICTS:
+
+- Relationships affect subjective attitude only. A positive relationship
+  does not let the NPC override reality to help; a negative one does not
+  allow attacking or blocking unless an implemented mechanic permits it.
+  Do not invent relationship changes.
+
+PERSONALITY CONFLICTS:
+
+- Personality controls expression only. A cautious NPC may react with
+  concern to an unexpectedly open door, but personality cannot create an
+  explanation such as "Someone must have broken the lock." unless the
+  game establishes it.
+
+DIALOGUE BEHAVIOR FOR CONTRADICTIONS:
+
+- When the player points out a contradiction, acknowledge it naturally.
+  Natural patterns include: "I thought...", "I was sure...",
+  "That's strange...", "I didn't expect...", "It appears...",
+  "I suppose things have changed."
+- Do not force these exact phrases. Keep the response natural and
+  character-appropriate. Do not expose internal field names or scores.
+
 DOOR STATE MACHINE:
 - locked → cannot open, requires key or unlocking
 - unlocked → can be opened with "open" action
