@@ -1,4 +1,5 @@
-﻿from typing import Any, Dict
+﻿import re
+from typing import Any, Dict
 
 from .state import GameState, Interactable, NPC
 from .generation import generate_location
@@ -238,6 +239,98 @@ def _find_npc(
             return npc
 
     return None
+
+
+def _extract_response_summary(
+    npc_name: str,
+    narration: str,
+) -> str | None:
+    """Build a concise third-person memory entry from an NPC's narration.
+
+    Returns None when no reliable summary can be produced so the caller
+    can fall back to storing only the topic/question memory.
+    """
+
+    if not narration:
+        return None
+
+    quoted = re.findall(r'"[^"]*"|\'[^\']*\'', narration)
+
+    if not quoted:
+        return None
+
+    spoken = max(quoted, key=len)[1:-1].strip()
+
+    if len(spoken) < 3:
+        return None
+
+    spoken = re.sub(r"\s+", " ", spoken)
+    spoken = spoken.rstrip(".!?…").strip()
+
+    if not spoken:
+        return None
+
+    # A spoken question cannot be summarized cleanly as a statement.
+    if any(
+        spoken.lower().startswith(word)
+        for word in (
+            "do ", "does ", "did ", "is ", "are ", "am ", "was ",
+            "were ", "can ", "could ", "will ", "would ", "should ",
+            "what ", "why ", "who ", "where ", "when ", "how ",
+            "have ", "has ", "had ",
+        )
+    ):
+        return None
+
+    lower = spoken.lower()
+
+    for old, new in (
+        ("i am ", "he is "),
+        ("i'm ", "he is "),
+        ("i have ", "he has "),
+        ("i've ", "he has "),
+        ("i was ", "he was "),
+        ("i think ", "he thinks "),
+        ("i believe ", "he believes "),
+        ("i feel ", "he feels "),
+        ("i expect ", "he expects "),
+        ("i'd ", "he would "),
+        ("i'll ", "he will "),
+        ("i ", "he "),
+    ):
+        if lower.startswith(old):
+            spoken = new + spoken[len(old):]
+            break
+    else:
+        spoken = spoken[:1].lower() + spoken[1:]
+
+    return f"{npc_name} told the player that {spoken}."
+
+
+def record_conversation_response(
+    game: GameState,
+    target: str,
+    narration: str,
+) -> str | None:
+    """Record a concise summary of an NPC's spoken response, if extractable.
+
+    Returns the stored memory entry, or None if no NPC matched or no
+    reliable summary could be extracted.
+    """
+
+    npc = _find_npc(game, target)
+
+    if npc is None:
+        return None
+
+    entry = _extract_response_summary(npc.name, narration)
+
+    if entry is None:
+        return None
+
+    _record_npc_memory(npc, entry)
+
+    return entry
 
 
 def interact(

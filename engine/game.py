@@ -8,6 +8,7 @@ from .actions import (
     interact,
     move_player,
     open_interactable,
+    record_conversation_response,
     take_item,
     use_item,
     wait,
@@ -200,6 +201,24 @@ NPC MEMORY RULES:
 - Do NOT invent memories that are not present in the game state.
 - Do NOT claim an NPC remembers something unless that information is
   listed in the NPC's memory/context.
+
+NPC CONVERSATION MEMORY RULES:
+
+- Memory entries describe past events, including concise factual records
+  of what the NPC actually said in previous conversations.
+- Memory is authoritative regarding what is recorded as having happened.
+- You may use the supplied memory to maintain continuity with the player.
+- Do NOT invent memories. Do NOT claim a conversation happened unless it
+  is recorded in the NPC's memory/context.
+- A memory that the NPC said something records that the conversation
+  happened; it does NOT independently prove that the statement is true.
+  The NPC must rely on current authoritative game state for how the
+  world is right now.
+- A remembered belief remains a remembered belief; a remembered goal
+  remains a remembered goal. Memory never upgrades a subjective
+  statement into an authoritative world fact.
+- Memory does not override current game state. Current game state and
+  implemented mechanics remain authoritative.
 
 NPC PERSONALITY RULES:
 
@@ -481,6 +500,17 @@ Interpret the player's action and return the required JSON.
             "narration",
             "Nothing happens.",
         )
+
+        for action in result.get("actions", []):
+            if action.get("type") == "interact":
+                topic = action.get("topic", "")
+
+                if topic.strip():
+                    record_conversation_response(
+                        self.game,
+                        action.get("target", ""),
+                        narration,
+                    )
 
         self.game.last_narration = narration
 
