@@ -63,7 +63,7 @@ def build_game_context(game: GameState) -> str:
 
         if location.npcs:
             lines.append("NPCs:")
-            lines.append("  (Note: Each NPC only knows what is listed in its own Knowledge section. Global world-state info above is NOT automatically known by any NPC. Beliefs are the NPC's subjective view and may be incorrect; game state remains authoritative. A listed Belief reflects the NPC's current opinion and should be expressed, not contradicted. Goals are what the NPC wants; they never change game state. Relationships are the NPC's subjective attitude toward others; they do not change game state. Routine is a descriptive list of the NPC's habits and hobbies; the Schedule maps hours to the location where Python moves the NPC.)")
+            lines.append("  (Note: Each NPC only knows what is listed in its own Knowledge section. Global world-state info above is NOT automatically known by any NPC. Beliefs are the NPC's subjective view and may be incorrect; game state remains authoritative. A listed Belief reflects the NPC's current opinion and should be expressed, not contradicted. Goals are what the NPC wants; they never change game state. Relationships are the NPC's subjective attitude toward others; they do not change game state. Routine is a descriptive list of the NPC's habits and hobbies; the Schedule maps hours to the location where Python moves the NPC. NPCs listed together at a location are present and may speak to one another.)")
 
             for npc_id in location.npcs:
                 npc = world.npcs.get(npc_id)

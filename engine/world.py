@@ -24,6 +24,7 @@ def create_new_game() -> GameState:
         ],
         npcs=[
             "old_man",
+            "sarah",
         ],
         interactables=[],
         symbol="🏠",
@@ -150,6 +151,7 @@ def create_new_game() -> GameState:
         ],
         relationships={
             "Traveler": 10,
+            "Sarah": 3,
         },
         routine=[
             "Tends the fire",
@@ -173,6 +175,55 @@ def create_new_game() -> GameState:
         },
     )
 
+    sarah = NPC(
+        id="sarah",
+        name="Sarah",
+        location="old_wooden_house",
+        description=(
+            "A sturdy woman with flour-dusted hands, "
+            "keeping the kitchen and the house in order."
+        ),
+        disposition=0,
+        personality=[
+            "practical",
+            "hardworking",
+            "dry-humored",
+        ],
+        knowledge=[
+            "The old house has a kitchen and an upstairs floor.",
+            "The Old Man has lived in this house for years.",
+            "The evening meal is prepared in the kitchen.",
+        ],
+        beliefs=[
+            "The Old Man talks more than he stirs.",
+            "The meal must be ready before nightfall.",
+        ],
+        goals=[
+            "Get the evening meal ready before dark.",
+            "Keep the house running smoothly.",
+        ],
+        relationships={
+            "Old Man": 10,
+            "Traveler": 0,
+        },
+        routine=[
+            "Sets the kitchen table",
+            "Checks the pots and cupboards",
+            "Keeps the hearth tidy",
+        ],
+        schedule={
+            "12": "old_wooden_house",
+            "18": "kitchen",
+            "21": "old_wooden_house",
+        },
+        current_activity="setting the table",
+        activity_by_time={
+            "12": "setting the table",
+            "18": "setting the table",
+            "21": "keeping watch over the house",
+        },
+    )
+
     game.world.locations = {
         house.id: house,
         forest_edge.id: forest_edge,
@@ -188,6 +239,7 @@ def create_new_game() -> GameState:
 
     game.world.npcs = {
         old_man.id: old_man,
+        sarah.id: sarah,
     }
 
     game.player.location = house.id

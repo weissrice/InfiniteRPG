@@ -525,7 +525,7 @@ DOOR STATE MACHINE:
 
 NPC ACTION RULES:
 
-- An NPC "interact" appears in one of exactly two directions. Decide
+- An NPC "interact" appears in one of exactly three directions. Decide
   which from the player's input:
   * Player → NPC: the player asks, tells, greets, or questions an NPC
     (e.g. "ask old man ...", "tell old man ..."). Emit a PLAYER action
@@ -535,6 +535,11 @@ NPC ACTION RULES:
     include an "actor" field naming the NPC:
     {"type": "interact", "actor": "old_man", "target": "Traveler",
      "topic": "asking the traveler to stay downstairs"}
+  * NPC → NPC: one NPC initiates a conversation with another NPC at the
+    same location. Include an "actor" field naming the initiator and a
+    "target" field naming the other NPC:
+    {"type": "interact", "actor": "old_man", "target": "sarah",
+     "topic": "the evening meal"}
 - The NPC named inside the player's command is NOT the actor. Player
   input that addresses an NPC by name ("ask old man ...",
   "tell old man ...") means the PLAYER is the speaker: emit a player
@@ -631,6 +636,35 @@ NPC WORLD INTERACTION RULES:
   example, the NPC returning to the pot it was stirring), grounded in
   the supplied state.
 - Do not invent an Activity Object.
+
+NPC SOCIAL INTERACTION RULES:
+
+- An NPC may start a conversation with another NPC present at the same
+  location.
+- Use the "interact" action with an "actor" field naming the initiating
+  NPC and a "target" field naming the other NPC:
+  {"type": "interact", "actor": "old_man", "target": "sarah",
+   "topic": "the evening meal"}
+- The "actor" is the NPC that initiates; the "target" is the NPC it
+  addresses. The actor must never target itself; Python rejects any
+  self-targeted action.
+- Python requires both NPCs to be present at the player's current
+  location. There is no lock, busy flag, or session state beyond that.
+- An NPC→NPC conversation is one narrated exchange in which the
+  initiating NPC speaks first and the target NPC replies. Both must be
+  written as quoted dialogue so the player can follow who said what.
+- Ground EACH NPC in ITS OWN supplied state: the initiating NPC speaks
+  from its own knowledge, personality, beliefs, goals, memory, and
+  relationship toward the target; the target replies from ITS OWN state
+  and from its relationship toward the initiator. Do not make one NPC
+  parrot the other, and do not dump internal field names into speech.
+- A conversation changes nothing. Python records a compact memory on
+  BOTH NPCs that the conversation happened and what was discussed. The
+  AI never writes memories, relationships, beliefs, goals, or any other
+  state.
+- NPC→NPC conversations only happen when this response explicitly
+  contains the action. They are not autonomous and do not occur between
+  turns or while the player is elsewhere.
 
 OTHER RULES:
 

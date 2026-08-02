@@ -529,6 +529,12 @@ def npc_interact(
                 f"{npc.name} cannot find target '{target}' here.",
             )
 
+        if target_npc.id == npc.id:
+            return ActionResult(
+                False,
+                f"{npc.name} cannot talk to itself.",
+            )
+
         target_label = target_npc.name
         target_data = target_label
 
@@ -539,11 +545,23 @@ def npc_interact(
             npc,
             f"{npc.name} spoke to {target_label} about {topic_lower}.",
         )
+
+        if not target_is_player:
+            _record_npc_memory(
+                target_npc,
+                f"{npc.name} spoke with {target_npc.name} about {topic_lower}.",
+            )
     else:
         _record_npc_memory(
             npc,
             f"{npc.name} spoke to {target_label}.",
         )
+
+        if not target_is_player:
+            _record_npc_memory(
+                target_npc,
+                f"{npc.name} spoke with {target_npc.name}.",
+            )
 
     return ActionResult(
         True,
