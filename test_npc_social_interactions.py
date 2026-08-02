@@ -297,20 +297,18 @@ results.append(check(
     res.success is False,
 ))
 
-print("\n=== 8. Non-memory state never mutates on success ===")
+print("\n=== 8. Non-relationship state never mutates on success ===")
 game = kitchen_evening()
 old_man = game.world.npcs["old_man"]
 sarah = game.world.npcs["sarah"]
 pot = game.world.interactables["kitchen_stew_pot"]
 
 
-def non_memory_snapshot(game):
+def non_relationship_snapshot(game):
     om = game.world.npcs["old_man"]
     sa = game.world.npcs["sarah"]
     p = game.world.interactables["kitchen_stew_pot"]
     return (
-        tuple(sorted(om.relationships.items())),
-        tuple(sorted(sa.relationships.items())),
         tuple(om.beliefs),
         tuple(sa.beliefs),
         tuple(om.knowledge),
@@ -331,12 +329,29 @@ def non_memory_snapshot(game):
     )
 
 
-before = non_memory_snapshot(game)
-npc_interact(game, "old_man", "sarah", "the meal")
-after = non_memory_snapshot(game)
+before = non_relationship_snapshot(game)
+res = npc_interact(game, "old_man", "sarah", "the meal")
+after = non_relationship_snapshot(game)
 results.append(check(
-    "All non-memory state identical after a successful conversation",
+    "All non-relationship state identical after a successful conversation",
     before == after,
+))
+results.append(check(
+    "Old Man -> Sarah relationship advanced by exactly +1",
+    old_man.relationships.get("Sarah") == 4,
+))
+results.append(check(
+    "Sarah -> Old Man relationship advanced by exactly +1",
+    sarah.relationships.get("Old Man") == 11,
+))
+results.append(check(
+    "relationship_update datum carried on success",
+    res.data.get("relationship_update") == {
+        "delta": 1,
+        "target": "Sarah",
+        "actor_score": 4,
+        "target_score": 11,
+    },
 ))
 
 print("\n=== 9. Deduplication ===")
@@ -349,6 +364,11 @@ results.append(check(
     "Repeated conversation does not duplicate entries",
     old_man.memory.count("Old Man spoke to Sarah about the evening meal.") == 1
     and sarah.memory.count("Old Man spoke with Sarah about the evening meal.") == 1,
+))
+results.append(check(
+    "Repeated conversation does not re-apply the relationship delta",
+    old_man.relationships.get("Sarah") == 4
+    and sarah.relationships.get("Old Man") == 11,
 ))
 
 print("\n=== 10. 20-entry memory cap still enforced ===")
@@ -481,8 +501,9 @@ try:
         "Sarah spoke with Old Man about the house." in loaded_old_man.memory,
     ))
     results.append(check(
-        "Static relationship seeds persist",
-        loaded_old_man.relationships.get("Sarah") == 3,
+        "Relationship seeds persist with evolution applied",
+        loaded_old_man.relationships.get("Sarah") == 4
+        and loaded_sarah.relationships.get("Old Man") == 11,
     ))
 finally:
     if path.exists():

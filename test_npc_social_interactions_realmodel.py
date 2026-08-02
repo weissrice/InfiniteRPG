@@ -170,6 +170,7 @@ N_TRIALS = 2
 attempted = 0
 npc_npc_proposed = 0
 npc_npc_executed = 0
+executed_events = set()
 self_target_proposed = False
 illegal_types = True
 
@@ -222,6 +223,11 @@ for player_input in initiation_inputs:
                 and item.get("success") is True
             ):
                 npc_npc_executed += 1
+                executed_events.add((
+                    requested.get("actor"),
+                    requested.get("target"),
+                    requested.get("topic", ""),
+                ))
 
 results.append(check(
     "Repeated batch produced at least one NPC->NPC proposal",
@@ -256,9 +262,21 @@ results.append(check(
     f"new_old_man={sorted(new_old)!r} new_sarah={sorted(new_sa)!r}",
 ))
 results.append(check(
-    "Relationships unchanged after all exchanges",
-    dict(old_man.relationships) == rel_before_old
-    and dict(sarah.relationships) == rel_before_sa,
+    "Each executed novel conversation advanced both relationship edges",
+    (
+        old_man.relationships.get("Sarah", 0)
+        - rel_before_old.get("Sarah", 0)
+        == len(executed_events)
+        and sarah.relationships.get("Old Man", 0)
+        - rel_before_sa.get("Old Man", 0)
+        == len(executed_events)
+    ),
+    f"old_man edge delta="
+    f"{old_man.relationships.get('Sarah', 0) - rel_before_old.get('Sarah', 0)} "
+    f"sarah edge delta="
+    f"{sarah.relationships.get('Old Man', 0) - rel_before_sa.get('Old Man', 0)} "
+    f"distinct events={len(executed_events)} "
+    f"executed={sorted(executed_events)!r}",
 ))
 results.append(check(
     "Object/activity state untouched after all exchanges",
@@ -281,6 +299,10 @@ results.append(check(
 results.append(check(
     "No-autonomy rule carried",
     "not autonomous" in sent_system.lower(),
+))
+results.append(check(
+    "NPC RELATIONSHIP EVOLUTION RULES carried in the real request",
+    "NPC RELATIONSHIP EVOLUTION RULES:" in ai.calls[1]["system"],
 ))
 
 print("\n--- Real-model raw responses (small batch) ---")

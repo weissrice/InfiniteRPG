@@ -199,6 +199,41 @@ def _find_interactable(
 MAX_NPC_MEMORY = 20
 
 
+RELATIONSHIP_MIN = -100
+RELATIONSHIP_MAX = 100
+CONVERSATION_RELATIONSHIP_DELTA = 1
+
+
+def _clamp(value: int, low: int, high: int) -> int:
+    """Clamp an integer to the inclusive [low, high] range."""
+
+    return max(low, min(high, value))
+
+
+def _adjust_relationship(
+    npc: NPC,
+    other_name: str,
+    delta: int,
+) -> int:
+    """Apply a bounded relationship delta toward another character.
+
+    The score is directional: only this NPC's attitude toward
+    ``other_name`` changes. Returns the updated score.
+    """
+
+    current = npc.relationships.get(other_name, 0)
+
+    updated = _clamp(
+        current + delta,
+        RELATIONSHIP_MIN,
+        RELATIONSHIP_MAX,
+    )
+
+    npc.relationships[other_name] = updated
+
+    return updated
+
+
 def _record_npc_memory(
     npc: NPC,
     entry: str,
@@ -485,6 +520,11 @@ def npc_interact(
     V1 supports only an NPC addressing another entity at the current
     location. Python remains authoritative: the actor must exist, be an
     NPC, and be at the current location.
+
+    A genuinely new NPC-to-NPC conversation (the initiation memory entry
+    is not yet recorded) additionally advances both directional
+    relationship edges by a fixed, bounded increment. This deterministic
+    mutation is the only way relationship scores change in this feature.
     """
 
     npc = _find_any_npc(game, actor)
@@ -539,29 +579,49 @@ def npc_interact(
         target_data = target_label
 
     topic_lower = topic.lower().strip()
+    relationship_update = None
 
     if topic_lower:
-        _record_npc_memory(
-            npc,
-            f"{npc.name} spoke to {target_label} about {topic_lower}.",
+        initiator_entry = (
+            f"{npc.name} spoke to {target_label} about {topic_lower}."
         )
+    else:
+        initiator_entry = f"{npc.name} spoke to {target_label}."
 
-        if not target_is_player:
+    is_new_event = initiator_entry not in npc.memory
+
+    _record_npc_memory(npc, initiator_entry)
+
+    if not target_is_player:
+        if topic_lower:
             _record_npc_memory(
                 target_npc,
                 f"{npc.name} spoke with {target_npc.name} about {topic_lower}.",
             )
-    else:
-        _record_npc_memory(
-            npc,
-            f"{npc.name} spoke to {target_label}.",
-        )
-
-        if not target_is_player:
+        else:
             _record_npc_memory(
                 target_npc,
                 f"{npc.name} spoke with {target_npc.name}.",
             )
+
+    if is_new_event and not target_is_player:
+        actor_score = _adjust_relationship(
+            npc,
+            target_npc.name,
+            CONVERSATION_RELATIONSHIP_DELTA,
+        )
+        target_score = _adjust_relationship(
+            target_npc,
+            npc.name,
+            CONVERSATION_RELATIONSHIP_DELTA,
+        )
+
+        relationship_update = {
+            "delta": CONVERSATION_RELATIONSHIP_DELTA,
+            "target": target_npc.name,
+            "actor_score": actor_score,
+            "target_score": target_score,
+        }
 
     return ActionResult(
         True,
@@ -573,6 +633,7 @@ def npc_interact(
             "actor": npc.id,
             "target": target_data,
             "topic": topic_lower,
+            "relationship_update": relationship_update,
         },
     )
 

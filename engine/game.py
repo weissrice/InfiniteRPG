@@ -400,6 +400,23 @@ NPC RELATIONSHIP RULES:
   same character.
 - Python/game state remains authoritative.
 
+NPC RELATIONSHIP EVOLUTION RULES:
+
+- Relationship scores evolve only through a deterministic consequence of
+  gameplay: when a genuinely new NPC-to-NPC conversation is executed,
+  Python advances both directional relationship edges (the actor toward
+  the target, and the target toward the actor) by a small, fixed,
+  bounded increment. The AI never chooses, emits, or predicts these
+  scores.
+- The AI must never claim that a relationship changed, describe a
+  mechanism for change, or announce a numerical delta, unless the
+  supplied relationship score or a conversation action result confirms
+  the change.
+- If a supplied relationship score has changed, treat the new value as
+  the NPC's current attitude and reflect it in dialogue naturally,
+  without narrating the change itself.
+- Python/game state remains authoritative.
+
 CRITICAL: AUTHORITATIVE VS SUBJECTIVE HIERARCHY.
 
 AUTHORITATIVE:
