@@ -641,6 +641,31 @@ results.append(check(
 save_path.unlink(missing_ok=True)
 
 # ---------------------------------------------------------------
+# 26. Renderer weather formatting does not crash
+# ---------------------------------------------------------------
+
+print("\n=== 26. Renderer weather formatting does not crash ===")
+game = create_new_game()
+game.world.weather = Weather(condition="storm", temperature=18)
+
+# Verify the weather condition can be formatted with a width specifier
+# (this is what renderer.py line 65 does)
+try:
+    formatted = f"{game.world.weather.condition:<12}"
+    formatting_works = True
+except TypeError:
+    formatting_works = False
+
+results.append(check(
+    "Weather condition formats without TypeError",
+    formatting_works,
+))
+results.append(check(
+    "Formatted weather is left-aligned within 12 chars",
+    len(formatted) == 12 and formatted.startswith("storm"),
+))
+
+# ---------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------
 

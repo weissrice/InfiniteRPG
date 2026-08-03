@@ -62,7 +62,7 @@ def render_game(game: GameState):
     print("║                     ✦ INFINITE RPG ✦                            ║")
     print(
         f"║              Day {game.world.day} • "
-        f"{game.world.time} • {game.world.weather:<12}             ║"
+        f"{game.world.time} • {game.world.weather.condition:<12}             ║"
     )
     print("╠══════════════════════════════════════════════════════════════════╣")
 

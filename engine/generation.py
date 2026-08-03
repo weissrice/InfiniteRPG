@@ -110,7 +110,7 @@ CURRENT WORLD:
 
 World name: {game.world.name}
 Genre: {game.world.genre}
-Weather: {game.world.weather}
+Weather: {game.world.weather.condition}
 Day: {game.world.day}
 Time: {game.world.time}
 
