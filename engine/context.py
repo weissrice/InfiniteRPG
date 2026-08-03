@@ -1,4 +1,5 @@
 from .state import GameState
+from .actions import RECIPES, ITEM_PRICES
 
 
 def build_game_context(game: GameState) -> str:
@@ -23,6 +24,7 @@ def build_game_context(game: GameState) -> str:
         f"Name: {player.name}",
         f"HP: {player.hp}/{player.max_hp}",
         f"Location: {player.location}",
+        f"Money: {player.money}",
         f"Level: {player.level}",
         f"XP: {player.xp}/{player.level * 100}",
         f"Stat Points: {player.stat_points}",
@@ -356,5 +358,51 @@ def build_game_context(game: GameState) -> str:
             lines.append("Abandoned:")
             for q in abandoned:
                 lines.append(f"- [{q.id}] {q.title}")
+
+    # Merchants at current location
+    if location and location.npcs:
+        merchants = [
+            world.npcs[npc_id]
+            for npc_id in location.npcs
+            if npc_id in world.npcs
+            and world.npcs[npc_id].hp > 0
+            and world.npcs[npc_id].inventory
+        ]
+
+        if merchants:
+            lines.extend([
+                "",
+                "=== MERCHANTS ===",
+            ])
+
+            for npc in merchants:
+                lines.append(f"- {npc.name} ({npc.id})")
+                lines.append(f"  Money: {npc.money}")
+                lines.append("  Inventory:")
+
+                # Count items
+                item_counts = {}
+                for item in npc.inventory:
+                    item_counts[item] = item_counts.get(item, 0) + 1
+
+                for item, count in item_counts.items():
+                    price = ITEM_PRICES.get(item, 0)
+                    lines.append(f"    - {item} x{count} (buy: {price}g)")
+
+    # Crafting recipes
+    lines.extend([
+        "",
+        "=== CRAFTING ===",
+        "Available Recipes:",
+    ])
+
+    for recipe_id, recipe in RECIPES.items():
+        lines.append(f"- {recipe_id}: {recipe.name}")
+        ingredient_parts = [
+            f"{item} x{qty}"
+            for item, qty in recipe.ingredients.items()
+        ]
+        lines.append(f"  Ingredients: {', '.join(ingredient_parts)}")
+        lines.append(f"  Output: {recipe.output} x{recipe.output_quantity}")
 
     return "\n".join(lines)

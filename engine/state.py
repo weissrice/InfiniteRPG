@@ -21,6 +21,9 @@ class Player:
     agility: int = 10
     intelligence: int = 10
 
+    # Trading
+    money: int = 0
+
 
 @dataclass
 class QuestObjective:
@@ -50,6 +53,15 @@ class Quest:
 
 
 @dataclass
+class Recipe:
+    id: str
+    name: str
+    ingredients: Dict[str, int]
+    output: str
+    output_quantity: int = 1
+
+
+@dataclass
 class NPC:
     id: str
     name: str
@@ -70,6 +82,10 @@ class NPC:
     activity_objects_by_time: Dict[str, str] = field(default_factory=dict)
     hp: int = 100
     max_hp: int = 100
+
+    # Trading
+    inventory: List[str] = field(default_factory=list)
+    money: int = 0
 
 
 @dataclass

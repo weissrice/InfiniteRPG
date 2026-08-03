@@ -42,6 +42,13 @@ def create_new_game() -> GameState:
             "house": "old_wooden_house",
             "forest": "deep_forest",
         },
+        items=[
+            "Wood",
+            "Herb",
+        ],
+        npcs=[
+            "merchant",
+        ],
         symbol="🌲",
         visual_type="forest",
     )
@@ -91,6 +98,10 @@ def create_new_game() -> GameState:
         exits={
             "back": "forest_edge",
         },
+        items=[
+            "Cloth",
+            "Iron Ore",
+        ],
         symbol="🌳",
         visual_type="forest",
     )
@@ -224,6 +235,64 @@ def create_new_game() -> GameState:
         },
     )
 
+    merchant = NPC(
+        id="merchant",
+        name="Merchant",
+        location="forest_edge",
+        description=(
+            "A weathered traveler with a heavy pack, "
+            "selling supplies to those passing through."
+        ),
+        disposition=0,
+        personality=[
+            "practical",
+            "shrewd",
+            "friendly",
+        ],
+        knowledge=[
+            "The forest has herbs and wood.",
+            "Iron ore can be found deeper in the forest.",
+        ],
+        beliefs=[
+            "Trade is the best way to survive.",
+        ],
+        goals=[
+            "Sell supplies to travelers.",
+            "Make a profit.",
+        ],
+        relationships={
+            "Traveler": 0,
+        },
+        routine=[
+            "Sells supplies at the forest edge",
+            "Restocks inventory from the forest",
+        ],
+        schedule={
+            "12": "forest_edge",
+            "18": "forest_edge",
+            "21": "forest_edge",
+        },
+        current_activity="selling supplies",
+        activity_by_time={
+            "12": "selling supplies",
+            "18": "restocking inventory",
+            "21": "selling supplies",
+        },
+        inventory=[
+            "Empty Bottle",
+            "Empty Bottle",
+            "Empty Bottle",
+            "Herb",
+            "Herb",
+            "Wood",
+            "Wood",
+            "Cloth",
+            "Iron Ore",
+            "Torch",
+        ],
+        money=200,
+    )
+
     game.world.locations = {
         house.id: house,
         forest_edge.id: forest_edge,
@@ -240,6 +309,7 @@ def create_new_game() -> GameState:
     game.world.npcs = {
         old_man.id: old_man,
         sarah.id: sarah,
+        merchant.id: merchant,
     }
 
     game.player.location = house.id

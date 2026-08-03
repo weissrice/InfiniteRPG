@@ -165,6 +165,117 @@ def show_status(game):
             return
 
 
+def show_crafting(game):
+    """Display the crafting screen."""
+
+    from engine.actions import RECIPES, ITEM_PRICES
+
+    session = create_session()
+
+    while True:
+        print()
+        print("╔══════════════════════════════════════════════════════════════════╗")
+        print("║                        CRAFTING                                  ║")
+        print("╠══════════════════════════════════════════════════════════════════╣")
+        print()
+
+        player = game.player
+        print(f"  Money: {player.money} gold")
+        print()
+
+        if not RECIPES:
+            print("  No recipes available.")
+        else:
+            print("  Available Recipes:")
+            for recipe_id, recipe in RECIPES.items():
+                print(f"    [{recipe_id}] {recipe.name}")
+                ingredient_parts = [
+                    f"{item} x{qty}"
+                    for item, qty in recipe.ingredients.items()
+                ]
+                print(f"      Ingredients: {', '.join(ingredient_parts)}")
+                print(f"      Output: {recipe.output} x{recipe.output_quantity}")
+
+                # Check if player can craft
+                can_craft = True
+                for ingredient, required in recipe.ingredients.items():
+                    if player.inventory.count(ingredient) < required:
+                        can_craft = False
+                        break
+
+                status = "READY" if can_craft else "Missing ingredients"
+                print(f"      Status: {status}")
+                print()
+
+        print("╠══════════════════════════════════════════════════════════════════╣")
+        print("║                     Press ESC to close                          ║")
+        print("╚══════════════════════════════════════════════════════════════════╝")
+
+        result = session.prompt("\n")
+
+        if result == "__ESC__":
+            return
+
+
+def show_trading(game):
+    """Display the trading screen."""
+
+    from engine.actions import ITEM_PRICES
+
+    session = create_session()
+
+    while True:
+        print()
+        print("╔══════════════════════════════════════════════════════════════════╗")
+        print("║                        TRADING                                  ║")
+        print("╠══════════════════════════════════════════════════════════════════╣")
+        print()
+
+        player = game.player
+        location = game.current_location()
+
+        print(f"  Your Money: {player.money} gold")
+        print()
+
+        if not location or not location.npcs:
+            print("  No merchants nearby.")
+        else:
+            merchants = [
+                game.world.npcs[npc_id]
+                for npc_id in location.npcs
+                if npc_id in game.world.npcs
+                and game.world.npcs[npc_id].hp > 0
+                and game.world.npcs[npc_id].inventory
+            ]
+
+            if not merchants:
+                print("  No merchants nearby.")
+            else:
+                for npc in merchants:
+                    print(f"  {npc.name} ({npc.id})")
+                    print(f"    Money: {npc.money} gold")
+                    print("    Inventory:")
+
+                    item_counts = {}
+                    for item in npc.inventory:
+                        item_counts[item] = item_counts.get(item, 0) + 1
+
+                    for item, count in item_counts.items():
+                        price = ITEM_PRICES.get(item, 0)
+                        print(f"      - {item} x{count} (buy: {price}g)")
+
+                    print()
+
+        print("╠══════════════════════════════════════════════════════════════════╣")
+        print("║                     Press ESC to close                          ║")
+        print("╚══════════════════════════════════════════════════════════════════╝")
+
+        result = session.prompt("\n")
+
+        if result == "__ESC__":
+            return
+
+
 def show_map(game):
     """Display the map screen."""
 
@@ -253,6 +364,14 @@ def main():
                 show_status(game.game)
                 continue
 
+            if command == "/craft":
+                show_crafting(game.game)
+                continue
+
+            if command == "/trade":
+                show_trading(game.game)
+                continue
+
             if command == "/map":
                 show_map(game.game)
                 continue
@@ -288,6 +407,8 @@ def main():
                 print("  /inventory  Open inventory")
                 print("  /quests     View quests")
                 print("  /status     View player stats")
+                print("  /craft      View crafting recipes")
+                print("  /trade      View nearby merchants")
                 print("  /map        Open map")
                 print("  /save       Save game")
                 print("  /load       Load game")

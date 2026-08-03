@@ -8,6 +8,8 @@ from .actions import (
     abandon_quest,
     allocate_stat,
     attack,
+    buy_item,
+    craft,
     decline_quest,
     drop_item,
     inspect,
@@ -18,6 +20,7 @@ from .actions import (
     offer_quest,
     open_interactable,
     record_conversation_response,
+    sell_item,
     take_item,
     use_item,
     wait,
@@ -273,6 +276,28 @@ Interpret the player's action and return the required JSON.
                 self.game,
                 action.get("stat", ""),
                 action.get("amount", 1),
+            )
+
+        if action_type == "craft":
+            return craft(
+                self.game,
+                action.get("recipe_id", ""),
+            )
+
+        if action_type == "buy_item":
+            return buy_item(
+                self.game,
+                action.get("npc", ""),
+                action.get("item", ""),
+                action.get("quantity", 1),
+            )
+
+        if action_type == "sell_item":
+            return sell_item(
+                self.game,
+                action.get("npc", ""),
+                action.get("item", ""),
+                action.get("quantity", 1),
             )
 
         return type(

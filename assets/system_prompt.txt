@@ -41,6 +41,9 @@ accept_quest
 decline_quest
 abandon_quest
 allocate_stat
+craft
+buy_item
+sell_item
 
 ACTION FORMATS:
 
@@ -155,6 +158,28 @@ allocate_stat:
 }
 
 Valid stats: strength, vitality, agility, intelligence
+
+craft:
+{
+  "type": "craft",
+  "recipe_id": "health_potion"
+}
+
+buy_item:
+{
+  "type": "buy_item",
+  "npc": "merchant",
+  "item": "Health Potion",
+  "quantity": 1
+}
+
+sell_item:
+{
+  "type": "sell_item",
+  "npc": "merchant",
+  "item": "Iron Ore",
+  "quantity": 2
+}
 
 IMPORTANT MOVEMENT RULES:
 
@@ -907,6 +932,30 @@ PLAYER PROGRESSION RULES:
   progression calculations.
 - Do NOT claim stat allocation succeeded unless the result confirms
   it. Python validates stat points, valid stat names, and amounts.
+
+CRAFTING & TRADING RULES:
+
+- Use "craft" when the player wants to craft an item from a recipe.
+- Set "recipe_id" to the recipe id from the CRAFTING section.
+- Use "buy_item" when the player wants to buy from a merchant.
+- Set "npc" to the merchant's id, "item" to the item name,
+  and "quantity" to the number (default 1).
+- Use "sell_item" when the player wants to sell to a merchant.
+- Set "npc" to the merchant's id, "item" to the item name,
+  and "quantity" to the number (default 1).
+- Only trade with NPCs that have inventory and are at the current
+  location. Check the MERCHANTS section for available merchants.
+- Python validates all recipes, ingredients, money, NPC location,
+  prices, and quantities.
+- AI cannot create recipes or invent prices.
+- AI cannot directly modify inventory or money.
+- Failed transactions cause no state mutation.
+- Trading requires a living co-located NPC.
+- Prices are deterministic: buying uses full price, selling uses 50%.
+- Do NOT claim a craft or trade succeeded unless the result confirms
+  it. Python handles all validation.
+- Do NOT narrate crafting XP gains unless the result confirms it.
+- Crafting awards 10 XP on success. Trading awards no XP.
 
 OTHER RULES:
 

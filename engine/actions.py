@@ -1306,10 +1306,53 @@ NPC_ATTACK_DAMAGE = 10
 # Progression
 XP_PER_LEVEL = 100
 XP_PER_NPC_KILL = 50
+XP_PER_CRAFT = 10
 
 _VALID_STATS = frozenset({
     "strength", "vitality", "agility", "intelligence",
 })
+
+# Crafting & Trading
+from .state import Recipe
+
+RECIPES = {
+    "health_potion": Recipe(
+        id="health_potion",
+        name="Health Potion",
+        ingredients={"Herb": 2, "Empty Bottle": 1},
+        output="Health Potion",
+        output_quantity=1,
+    ),
+    "torch": Recipe(
+        id="torch",
+        name="Torch",
+        ingredients={"Wood": 1, "Cloth": 1},
+        output="Torch",
+        output_quantity=1,
+    ),
+    "iron_sword": Recipe(
+        id="iron_sword",
+        name="Iron Sword",
+        ingredients={"Iron Ore": 3, "Wood": 1},
+        output="Iron Sword",
+        output_quantity=1,
+    ),
+}
+
+ITEM_PRICES = {
+    "Herb": 5,
+    "Empty Bottle": 10,
+    "Health Potion": 30,
+    "Iron Ore": 15,
+    "Wood": 3,
+    "Cloth": 5,
+    "Iron Sword": 100,
+    "Torch": 10,
+    "Rusty Key": 0,
+    "Torn Note": 0,
+}
+
+SELL_MULTIPLIER = 0.5
 
 
 def _find_weapon(inventory: list[str], weapon_name: str) -> str | None:
@@ -1499,6 +1542,268 @@ def allocate_stat(
             "stat_points": player.stat_points,
             "max_hp": player.max_hp,
             "hp": player.hp,
+        },
+    )
+
+
+# ---------------------------------------------------------
+# CRAFTING & TRADING
+# ---------------------------------------------------------
+
+
+def craft(
+    game: GameState,
+    recipe_id: str,
+) -> ActionResult:
+    """Craft an item from a predefined recipe."""
+
+    player = game.player
+
+    recipe = RECIPES.get(recipe_id)
+    if recipe is None:
+        return ActionResult(
+            False,
+            f"Unknown recipe: {recipe_id}.",
+            {"reason": "recipe_not_found"},
+        )
+
+    # Check ingredients
+    missing = []
+    insufficient = []
+
+    for ingredient, required in recipe.ingredients.items():
+        count = player.inventory.count(ingredient)
+        if count == 0:
+            missing.append(ingredient)
+        elif count < required:
+            insufficient.append(
+                f"{ingredient} (have {count}, need {required})"
+            )
+
+    if missing or insufficient:
+        reasons = []
+        if missing:
+            reasons.append(f"Missing: {', '.join(missing)}")
+        if insufficient:
+            reasons.append(f"Insufficient: {', '.join(insufficient)}")
+
+        return ActionResult(
+            False,
+            f"Cannot craft {recipe.name}. {' '.join(reasons)}.",
+            {"reason": "insufficient_ingredients"},
+        )
+
+    # Consume ingredients
+    for ingredient, required in recipe.ingredients.items():
+        for _ in range(required):
+            player.inventory.remove(ingredient)
+
+    # Add output
+    for _ in range(recipe.output_quantity):
+        player.inventory.append(recipe.output)
+
+    # Award XP
+    _award_xp(game, XP_PER_CRAFT, "crafting")
+
+    return ActionResult(
+        True,
+        f"Crafted {recipe.output_quantity} {recipe.output}.",
+        {
+            "recipe_id": recipe.id,
+            "recipe_name": recipe.name,
+            "ingredients_consumed": dict(recipe.ingredients),
+            "output": recipe.output,
+            "output_quantity": recipe.output_quantity,
+        },
+    )
+
+
+def buy_item(
+    game: GameState,
+    npc_id: str,
+    item: str,
+    quantity: int = 1,
+) -> ActionResult:
+    """Buy an item from an NPC."""
+
+    player = game.player
+
+    # Validate quantity
+    if not isinstance(quantity, (int, float)) or quantity <= 0:
+        return ActionResult(
+            False,
+            "Quantity must be a positive integer.",
+            {"reason": "invalid_quantity"},
+        )
+
+    quantity = int(quantity)
+
+    # Validate NPC exists
+    npc = game.world.npcs.get(npc_id)
+    if npc is None:
+        return ActionResult(
+            False,
+            f"NPC '{npc_id}' not found.",
+            {"reason": "npc_not_found"},
+        )
+
+    # Validate NPC is alive
+    if npc.hp <= 0:
+        return ActionResult(
+            False,
+            f"{npc.name} is dead.",
+            {"reason": "npc_dead"},
+        )
+
+    # Validate NPC is co-located
+    location = game.current_location()
+    if location is None or npc_id not in location.npcs:
+        return ActionResult(
+            False,
+            f"{npc.name} is not here.",
+            {"reason": "npc_not_here"},
+        )
+
+    # Validate item has a price
+    if item not in ITEM_PRICES or ITEM_PRICES[item] <= 0:
+        return ActionResult(
+            False,
+            f"{item} is not for sale.",
+            {"reason": "item_not_for_sale"},
+        )
+
+    # Validate NPC has item
+    npc_count = npc.inventory.count(item)
+    if npc_count < quantity:
+        return ActionResult(
+            False,
+            f"{npc.name} doesn't have enough {item}.",
+            {"reason": "insufficient_npc_stock"},
+        )
+
+    # Calculate price
+    total_price = ITEM_PRICES[item] * quantity
+
+    # Validate player has enough money
+    if player.money < total_price:
+        return ActionResult(
+            False,
+            f"Not enough money. Need {total_price}, have {player.money}.",
+            {"reason": "insufficient_money"},
+        )
+
+    # Execute transaction
+    for _ in range(quantity):
+        npc.inventory.remove(item)
+        player.inventory.append(item)
+
+    player.money -= total_price
+    npc.money += total_price
+
+    return ActionResult(
+        True,
+        f"Bought {quantity} {item} for {total_price} gold.",
+        {
+            "npc_id": npc_id,
+            "item": item,
+            "quantity": quantity,
+            "price": total_price,
+            "player_money": player.money,
+        },
+    )
+
+
+def sell_item(
+    game: GameState,
+    npc_id: str,
+    item: str,
+    quantity: int = 1,
+) -> ActionResult:
+    """Sell an item to an NPC."""
+
+    player = game.player
+
+    # Validate quantity
+    if not isinstance(quantity, (int, float)) or quantity <= 0:
+        return ActionResult(
+            False,
+            "Quantity must be a positive integer.",
+            {"reason": "invalid_quantity"},
+        )
+
+    quantity = int(quantity)
+
+    # Validate NPC exists
+    npc = game.world.npcs.get(npc_id)
+    if npc is None:
+        return ActionResult(
+            False,
+            f"NPC '{npc_id}' not found.",
+            {"reason": "npc_not_found"},
+        )
+
+    # Validate NPC is alive
+    if npc.hp <= 0:
+        return ActionResult(
+            False,
+            f"{npc.name} is dead.",
+            {"reason": "npc_dead"},
+        )
+
+    # Validate NPC is co-located
+    location = game.current_location()
+    if location is None or npc_id not in location.npcs:
+        return ActionResult(
+            False,
+            f"{npc.name} is not here.",
+            {"reason": "npc_not_here"},
+        )
+
+    # Validate item has a price
+    if item not in ITEM_PRICES or ITEM_PRICES[item] <= 0:
+        return ActionResult(
+            False,
+            f"{item} cannot be sold.",
+            {"reason": "item_not_sellable"},
+        )
+
+    # Validate player has item
+    player_count = player.inventory.count(item)
+    if player_count < quantity:
+        return ActionResult(
+            False,
+            f"You don't have enough {item}.",
+            {"reason": "insufficient_player_stock"},
+        )
+
+    # Calculate sell price
+    sell_price = int(ITEM_PRICES[item] * SELL_MULTIPLIER) * quantity
+
+    # Validate NPC has enough money
+    if npc.money < sell_price:
+        return ActionResult(
+            False,
+            f"{npc.name} doesn't have enough money.",
+            {"reason": "insufficient_npc_money"},
+        )
+
+    # Execute transaction
+    for _ in range(quantity):
+        player.inventory.remove(item)
+        npc.inventory.append(item)
+
+    player.money += sell_price
+    npc.money -= sell_price
+
+    return ActionResult(
+        True,
+        f"Sold {quantity} {item} for {sell_price} gold.",
+        {
+            "npc_id": npc_id,
+            "item": item,
+            "quantity": quantity,
+            "price": sell_price,
+            "player_money": player.money,
         },
     )
 
