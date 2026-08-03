@@ -49,6 +49,11 @@ def build_game_context(game: GameState) -> str:
         f"  Vitality affects max HP ({player.max_hp}).",
         f"  Agility and Intelligence have no effect in V1.",
         f"  Each level grants +1 stat point. XP threshold: {player.level * 100}.",
+        "",
+        "=== WORLD MAP ===",
+        f"Current location: {player.location}",
+        f"Visited locations: {', '.join(sorted(game.visited_locations)) if game.visited_locations else 'none'}",
+        f"Connected locations: {', '.join(location.exits.values()) if location and location.exits else 'none'}",
     ])
 
     if location:

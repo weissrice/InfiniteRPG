@@ -15,6 +15,10 @@ def save_game(game: GameState, path: Path = SAVE_FILE):
     data = asdict(game)
     data["version"] = SAVE_VERSION
 
+    # Convert visited_locations set to list for JSON serialization
+    if "visited_locations" in data:
+        data["visited_locations"] = list(data["visited_locations"])
+
     with path.open("w", encoding="utf-8") as file:
         json.dump(data, file, indent=2, ensure_ascii=False)
 
@@ -97,4 +101,5 @@ def load_game(path: Path = SAVE_FILE) -> GameState:
         player=player,
         world=world,
         quests=quests,
+        visited_locations=set(data.get("visited_locations", [])),
     )

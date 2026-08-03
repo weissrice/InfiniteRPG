@@ -279,14 +279,32 @@ def show_trading(game):
 def show_map(game):
     """Display the map screen."""
 
-    render_game(game)
+    from engine.map import render_map, get_location_details
 
     session = create_session()
 
     while True:
-        result = session.prompt(
-            "\nPress ESC to return to the game: "
-        )
+        print()
+        print("╔══════════════════════════════════════════════════════════════════╗")
+        print("║                           MAP                                    ║")
+        print("╠══════════════════════════════════════════════════════════════════╣")
+        print()
+
+        # Render the ASCII map
+        map_str = render_map(game)
+        print(map_str)
+
+        # Show current location details
+        current_loc = game.current_location()
+        if current_loc:
+            details = get_location_details(game, current_loc.id)
+            print(details)
+
+        print("╠══════════════════════════════════════════════════════════════════╣")
+        print("║                     Press ESC to close                          ║")
+        print("╚══════════════════════════════════════════════════════════════════╝")
+
+        result = session.prompt("\n")
 
         if result == "__ESC__":
             return

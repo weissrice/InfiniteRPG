@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 
 @dataclass
@@ -115,6 +115,10 @@ class Location:
     symbol: str = "?"
     visual_type: str = "area"
 
+    # Map coordinates for ASCII map rendering
+    map_x: int = 0
+    map_y: int = 0
+
 
 @dataclass
 class World:
@@ -140,6 +144,9 @@ class GameState:
 
     # Active/offered/completed/failed/abandoned quests.
     quests: Dict[str, Quest] = field(default_factory=dict)
+
+    # Locations the player has visited
+    visited_locations: Set[str] = field(default_factory=set)
 
     def current_location(self) -> Location | None:
         """Return the location where the player currently is."""

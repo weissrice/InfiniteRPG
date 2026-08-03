@@ -29,6 +29,8 @@ def create_new_game() -> GameState:
         interactables=[],
         symbol="🏠",
         visual_type="house",
+        map_x=0,
+        map_y=0,
     )
 
     forest_edge = Location(
@@ -51,6 +53,8 @@ def create_new_game() -> GameState:
         ],
         symbol="🌲",
         visual_type="forest",
+        map_x=1,
+        map_y=0,
     )
 
     kitchen = Location(
@@ -68,6 +72,8 @@ def create_new_game() -> GameState:
         interactables=[
             "kitchen_stew_pot",
         ],
+        map_x=-1,
+        map_y=0,
     )
 
     upstairs = Location(
@@ -86,6 +92,8 @@ def create_new_game() -> GameState:
         ],
         symbol="🚪",
         visual_type="interior",
+        map_x=0,
+        map_y=1,
     )
 
     deep_forest = Location(
@@ -104,6 +112,8 @@ def create_new_game() -> GameState:
         ],
         symbol="🌳",
         visual_type="forest",
+        map_x=2,
+        map_y=0,
     )
 
     locked_upstairs_door = Interactable(
@@ -313,6 +323,9 @@ def create_new_game() -> GameState:
     }
 
     game.player.location = house.id
+
+    # Mark starting location as visited
+    game.visited_locations.add(house.id)
 
     return game
 

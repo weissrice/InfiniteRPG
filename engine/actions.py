@@ -41,6 +41,7 @@ def move_player(
 
         if direction.lower() == destination_lower:
             game.player.location = target_id
+            game.visited_locations.add(target_id)
             quest_events = _check_quest_progress(
                 game, "visit", target_id,
             )
@@ -56,6 +57,7 @@ def move_player(
 
         if target_id.lower() == destination_lower:
             game.player.location = target_id
+            game.visited_locations.add(target_id)
             quest_events = _check_quest_progress(
                 game, "visit", target_id,
             )
@@ -71,6 +73,7 @@ def move_player(
 
         if target and target.name.lower() == destination_lower:
             game.player.location = target_id
+            game.visited_locations.add(target_id)
             quest_events = _check_quest_progress(
                 game, "visit", target_id,
             )
