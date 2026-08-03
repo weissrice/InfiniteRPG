@@ -515,6 +515,8 @@ def npc_interact(
     target: str,
     topic: str = "",
     knowledge_transfer: str = "",
+    belief_transfer: str = "",
+    goal_transfer: str = "",
 ) -> ActionResult:
     """Handle an NPC-initiated interact (dialogue) event.
 
@@ -640,6 +642,38 @@ def npc_interact(
             target_npc.knowledge.append(kt_lower)
             knowledge_update = {"knowledge": kt_lower}
 
+    belief_update = None
+
+    if (
+        belief_transfer
+        and not target_is_player
+        and is_new_event
+    ):
+        bt_lower = belief_transfer.strip()
+        if (
+            bt_lower
+            and bt_lower in npc.beliefs
+            and bt_lower not in target_npc.beliefs
+        ):
+            target_npc.beliefs.append(bt_lower)
+            belief_update = {"belief": bt_lower}
+
+    goal_update = None
+
+    if (
+        goal_transfer
+        and not target_is_player
+        and is_new_event
+    ):
+        gt_lower = goal_transfer.strip()
+        if (
+            gt_lower
+            and gt_lower in npc.goals
+            and gt_lower not in target_npc.goals
+        ):
+            target_npc.goals.append(gt_lower)
+            goal_update = {"goal": gt_lower}
+
     return ActionResult(
         True,
         (
@@ -652,6 +686,8 @@ def npc_interact(
             "topic": topic_lower,
             "relationship_update": relationship_update,
             "knowledge_update": knowledge_update,
+            "belief_update": belief_update,
+            "goal_update": goal_update,
         },
     )
 

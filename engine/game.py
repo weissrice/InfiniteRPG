@@ -716,6 +716,70 @@ NPC KNOWLEDGE TRANSFER RULES:
 - If a knowledge_transfer proposal is invalid, the AI must narrate the
   conversation normally without mentioning any transfer attempt.
 
+NPC BELIEF TRANSFER RULES:
+
+- CRITICAL: AUTHORITATIVE VS SUBJECTIVE HIERARCHY
+  Beliefs are subjective NPC state. The supplied Belief entries are
+  opinions each NPC currently holds. The AI must never invent, add,
+  remove, or rearrange belief entries except through the mechanism below.
+
+- During an NPC→NPC conversation, The AI may propose a candidate
+  belief string using the optional "belief_transfer" field:
+  {"type": "interact", "actor": "old_man", "target": "sarah",
+   "topic": "the forest",
+   "belief_transfer": "The forest is likely quiet this time of day."}
+- The AI must only propose a belief_transfer string that exactly
+  matches an entry in the actor NPC's supplied Beliefs list. The AI
+  must NOT propose a belief the actor does not hold.
+- Python validates whether the actor actually possesses this exact
+  belief and whether the target already holds it. If the actor does
+  not possess it, or the target already holds it, or the conversation
+  is not a genuinely new NPC-to-NPC conversation, the transfer is
+  silently rejected and the conversation proceeds normally.
+- Belief transfer is independent of conversation success. A
+  conversation can succeed without belief transfer, and a rejected
+  belief transfer does not cause the conversation to fail.
+- Belief transfer does NOT affect relationships. It does NOT modify
+  knowledge, goals, memory, or any other state. It only appends the
+  exact string to the target NPC's Beliefs list when all conditions
+  are met.
+- The AI must never claim that a belief was shared unless the
+  conversation action result confirms it via the belief_update datum.
+- If a belief_transfer proposal is invalid, the AI must narrate the
+  conversation normally without mentioning any transfer attempt.
+
+NPC GOAL TRANSFER RULES:
+
+- CRITICAL: AUTHORITATIVE VS SUBJECTIVE HIERARCHY
+  Goals are subjective NPC state. The supplied Goal entries are
+  objectives each NPC currently holds. The AI must never invent, add,
+  remove, or rearrange goal entries except through the mechanism below.
+
+- During an NPC→NPC conversation, The AI may propose a candidate
+  goal string using the optional "goal_transfer" field:
+  {"type": "interact", "actor": "old_man", "target": "sarah",
+   "topic": "protecting the house",
+   "goal_transfer": "Keep the house safe."}
+- The AI must only propose a goal_transfer string that exactly
+  matches an entry in the actor NPC's supplied Goals list. The AI
+  must NOT propose a goal the actor does not hold.
+- Python validates whether the actor actually possesses this exact
+  goal and whether the target already holds it. If the actor does
+  not possess it, or the target already holds it, or the conversation
+  is not a genuinely new NPC-to-NPC conversation, the transfer is
+  silently rejected and the conversation proceeds normally.
+- Goal transfer is independent of conversation success. A
+  conversation can succeed without goal transfer, and a rejected
+  goal transfer does not cause the conversation to fail.
+- Goal transfer does NOT affect relationships. It does NOT modify
+  knowledge, beliefs, memory, or any other state. It only appends
+  the exact string to the target NPC's Goals list when all conditions
+  are met.
+- The AI must never claim that a goal was shared unless the
+  conversation action result confirms it via the goal_update datum.
+- If a goal_transfer proposal is invalid, the AI must narrate the
+  conversation normally without mentioning any transfer attempt.
+
 OTHER RULES:
 
 - Only use entities that exist in the supplied game state.
@@ -984,6 +1048,8 @@ Interpret the player's action and return the required JSON.
                 action.get("target", ""),
                 action.get("topic", ""),
                 action.get("knowledge_transfer", ""),
+                action.get("belief_transfer", ""),
+                action.get("goal_transfer", ""),
             )
 
         return npc_interact_object(
