@@ -4,12 +4,17 @@ from typing import Any
 
 from .save import save_game, load_game
 from .actions import (
+    accept_quest,
+    abandon_quest,
+    attack,
+    decline_quest,
     drop_item,
     inspect,
     interact,
     move_player,
     npc_interact,
     npc_interact_object,
+    offer_quest,
     open_interactable,
     record_conversation_response,
     take_item,
@@ -225,6 +230,43 @@ Interpret the player's action and return the required JSON.
                 int(action.get("minutes", 10)),
             )
 
+        if action_type == "attack":
+            return attack(
+                self.game,
+                "player",
+                action.get("target", ""),
+                action.get("weapon", ""),
+            )
+
+        if action_type == "offer_quest":
+            return offer_quest(
+                self.game,
+                action.get("actor", ""),
+                action.get("quest_id", ""),
+                action.get("title", ""),
+                action.get("description", ""),
+                action.get("objectives", []),
+                action.get("rewards"),
+            )
+
+        if action_type == "accept_quest":
+            return accept_quest(
+                self.game,
+                action.get("quest_id", ""),
+            )
+
+        if action_type == "decline_quest":
+            return decline_quest(
+                self.game,
+                action.get("quest_id", ""),
+            )
+
+        if action_type == "abandon_quest":
+            return abandon_quest(
+                self.game,
+                action.get("quest_id", ""),
+            )
+
         return type(
             "UnknownActionResult",
             (),
@@ -239,11 +281,15 @@ Interpret the player's action and return the required JSON.
         self,
         action: dict[str, Any],
     ):
-        """Execute one NPC-proposed action (V1: interact only)."""
+        """Execute one NPC-proposed action (V1: interact, interact_object, attack)."""
 
         action_type = action.get("type")
 
-        if action_type != "interact" and action_type != "interact_object":
+        if (
+            action_type != "interact"
+            and action_type != "interact_object"
+            and action_type != "attack"
+        ):
             return type(
                 "NpcActionNotAllowed",
                 (),
@@ -265,6 +311,14 @@ Interpret the player's action and return the required JSON.
                 action.get("knowledge_transfer", ""),
                 action.get("belief_transfer", ""),
                 action.get("goal_transfer", ""),
+            )
+
+        if action_type == "attack":
+            return attack(
+                self.game,
+                action.get("actor", ""),
+                action.get("target", ""),
+                action.get("weapon", ""),
             )
 
         return npc_interact_object(

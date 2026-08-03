@@ -65,7 +65,7 @@ results.append(check(
 ))
 results.append(check(
     "NPC ACTION RULES permit interact_object",
-    'may use "interact" and "interact_object"' in normalized
+    'may use "interact", "interact_object", and "attack"' in normalized
     and "interact_object" in system,
 ))
 results.append(check(

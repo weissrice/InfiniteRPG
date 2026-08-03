@@ -78,6 +78,9 @@ def build_game_context(game: GameState) -> str:
                     lines.append(
                         f"  Description: {npc.description}"
                     )
+                    lines.append(
+                        f"  HP: {npc.hp}/{npc.max_hp}"
+                    )
 
                     if npc.current_activity:
                         lines.append(
@@ -266,5 +269,75 @@ def build_game_context(game: GameState) -> str:
                     lines.append(
                         f"- Unknown interactable ({interactable_id})"
                     )
+
+    # Quests
+    if game.quests:
+        lines.append("")
+        lines.append("=== QUESTS ===")
+
+        active = [
+            q for q in game.quests.values()
+            if q.state == "active"
+        ]
+        offered = [
+            q for q in game.quests.values()
+            if q.state == "offered"
+        ]
+        completed = [
+            q for q in game.quests.values()
+            if q.state == "completed"
+        ]
+        failed = [
+            q for q in game.quests.values()
+            if q.state == "failed"
+        ]
+        abandoned = [
+            q for q in game.quests.values()
+            if q.state == "abandoned"
+        ]
+
+        if active:
+            lines.append("Active:")
+            for q in active:
+                lines.append(f"- [{q.id}] {q.title}")
+                giver = world.npcs.get(q.giver)
+                giver_name = giver.name if giver else q.giver
+                lines.append(f"  Giver: {giver_name}")
+                total = len(q.objectives)
+                done = sum(
+                    1 for o in q.objectives if o.completed
+                )
+                lines.append(f"  Progress: {done}/{total} objectives")
+                lines.append("  Objectives:")
+                for o in q.objectives:
+                    mark = "x" if o.completed else " "
+                    lines.append(
+                        f"    - [{mark}] {o.description}"
+                        f" ({o.current}/{o.required})"
+                    )
+
+        if offered:
+            lines.append("Offered:")
+            for q in offered:
+                lines.append(f"- [{q.id}] {q.title}")
+                giver = world.npcs.get(q.giver)
+                giver_name = giver.name if giver else q.giver
+                lines.append(f"  Giver: {giver_name}")
+                lines.append(f"  {q.description}")
+
+        if completed:
+            lines.append("Completed:")
+            for q in completed:
+                lines.append(f"- [{q.id}] {q.title}")
+
+        if failed:
+            lines.append("Failed:")
+            for q in failed:
+                lines.append(f"- [{q.id}] {q.title}")
+
+        if abandoned:
+            lines.append("Abandoned:")
+            for q in abandoned:
+                lines.append(f"- [{q.id}] {q.title}")
 
     return "\n".join(lines)

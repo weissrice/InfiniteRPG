@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 
 @dataclass
@@ -11,6 +11,33 @@ class Player:
     inventory: List[str] = field(
         default_factory=lambda: ["Rusty Key", "Torn Note"]
     )
+
+
+@dataclass
+class QuestObjective:
+    id: str
+    type: str  # "kill", "find", "talk", "visit"
+    target: str
+    description: str
+    required: int = 1
+    current: int = 0
+
+    @property
+    def completed(self) -> bool:
+        return self.current >= self.required
+
+
+@dataclass
+class Quest:
+    id: str
+    title: str
+    description: str
+    giver: str  # NPC id
+    state: str = "offered"  # offered, active, completed, failed, abandoned
+    objectives: List[QuestObjective] = field(default_factory=list)
+    rewards: Dict = field(default_factory=dict)
+    offered_at: str = ""
+    offered_time: str = ""
 
 
 @dataclass
@@ -32,6 +59,8 @@ class NPC:
     activity_by_time: Dict[str, str] = field(default_factory=dict)
     current_activity_object: str = ""
     activity_objects_by_time: Dict[str, str] = field(default_factory=dict)
+    hp: int = 100
+    max_hp: int = 100
 
 
 @dataclass
@@ -83,6 +112,9 @@ class GameState:
 
     # Most recent AI-generated narration.
     last_narration: str = ""
+
+    # Active/offered/completed/failed/abandoned quests.
+    quests: Dict[str, Quest] = field(default_factory=dict)
 
     def current_location(self) -> Location | None:
         """Return the location where the player currently is."""

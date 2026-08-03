@@ -48,6 +48,79 @@ def show_inventory(game):
             return
 
 
+def show_quests(game):
+    """Display the quests screen."""
+
+    session = create_session()
+
+    while True:
+        print()
+        print("╔══════════════════════════════════════════════════════════════════╗")
+        print("║                           QUESTS                                  ║")
+        print("╠══════════════════════════════════════════════════════════════════╣")
+        print()
+
+        quests = game.quests
+
+        if not quests:
+            print("  No quests.")
+        else:
+            active = [q for q in quests.values() if q.state == "active"]
+            offered = [q for q in quests.values() if q.state == "offered"]
+            completed = [q for q in quests.values() if q.state == "completed"]
+            failed = [q for q in quests.values() if q.state == "failed"]
+            abandoned = [q for q in quests.values() if q.state == "abandoned"]
+
+            if active:
+                print("  ACTIVE:")
+                for q in active:
+                    print(f"    [{q.id}] {q.title}")
+                    total = len(q.objectives)
+                    done = sum(1 for o in q.objectives if o.completed)
+                    print(f"      Progress: {done}/{total} objectives")
+                    for o in q.objectives:
+                        mark = "x" if o.completed else " "
+                        print(
+                            f"        [{mark}] {o.description}"
+                            f" ({o.current}/{o.required})"
+                        )
+                print()
+
+            if offered:
+                print("  OFFERED:")
+                for q in offered:
+                    print(f"    [{q.id}] {q.title}")
+                    print(f"      {q.description}")
+                print()
+
+            if completed:
+                print("  COMPLETED:")
+                for q in completed:
+                    print(f"    [{q.id}] {q.title}")
+                print()
+
+            if failed:
+                print("  FAILED:")
+                for q in failed:
+                    print(f"    [{q.id}] {q.title}")
+                print()
+
+            if abandoned:
+                print("  ABANDONED:")
+                for q in abandoned:
+                    print(f"    [{q.id}] {q.title}")
+                print()
+
+        print("╠══════════════════════════════════════════════════════════════════╣")
+        print("║                     Press ESC to close                          ║")
+        print("╚══════════════════════════════════════════════════════════════════╝")
+
+        result = session.prompt("\n")
+
+        if result == "__ESC__":
+            return
+
+
 def show_map(game):
     """Display the map screen."""
 
@@ -128,6 +201,10 @@ def main():
                 show_inventory(game.game)
                 continue
 
+            if command == "/quests":
+                show_quests(game.game)
+                continue
+
             if command == "/map":
                 show_map(game.game)
                 continue
@@ -161,6 +238,7 @@ def main():
                 print()
                 print("Commands:")
                 print("  /inventory  Open inventory")
+                print("  /quests     View quests")
                 print("  /map        Open map")
                 print("  /save       Save game")
                 print("  /load       Load game")

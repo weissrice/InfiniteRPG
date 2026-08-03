@@ -2,7 +2,7 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
-from .state import GameState, Player, World, Location, NPC
+from .state import GameState, Player, World, Location, NPC, Quest, QuestObjective
 
 
 SAVE_FILE = Path("rpg_save.json")
@@ -67,7 +67,34 @@ def load_game(path: Path = SAVE_FILE) -> GameState:
         npcs=npcs,
     )
 
+    # Reconstruct quests (backward-compatible: old saves have none)
+    quests = {}
+    quests_data = data.get("quests", {})
+    for quest_id, quest_data in quests_data.items():
+        objectives = []
+        for obj_data in quest_data.get("objectives", []):
+            objectives.append(QuestObjective(
+                id=obj_data["id"],
+                type=obj_data["type"],
+                target=obj_data["target"],
+                description=obj_data["description"],
+                required=obj_data.get("required", 1),
+                current=obj_data.get("current", 0),
+            ))
+        quests[quest_id] = Quest(
+            id=quest_data["id"],
+            title=quest_data["title"],
+            description=quest_data["description"],
+            giver=quest_data["giver"],
+            state=quest_data.get("state", "offered"),
+            objectives=objectives,
+            rewards=quest_data.get("rewards", {}),
+            offered_at=quest_data.get("offered_at", ""),
+            offered_time=quest_data.get("offered_time", ""),
+        )
+
     return GameState(
         player=player,
         world=world,
+        quests=quests,
     )

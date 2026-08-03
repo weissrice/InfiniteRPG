@@ -35,6 +35,11 @@ interact
 use_item
 open
 wait
+attack
+offer_quest
+accept_quest
+decline_quest
+abandon_quest
 
 ACTION FORMATS:
 
@@ -86,6 +91,59 @@ wait:
 {
   "type": "wait",
   "minutes": 10
+}
+
+attack:
+{
+  "type": "attack",
+  "target": "npc_id"
+}
+
+attack (with weapon):
+{
+  "type": "attack",
+  "target": "npc_id",
+  "weapon": "Sword"
+}
+
+offer_quest:
+{
+  "type": "offer_quest",
+  "actor": "npc_id",
+  "quest_id": "quest_001",
+  "title": "Find the Lost Key",
+  "description": "The old man asks you to find his brass key in the forest.",
+  "objectives": [
+    {
+      "id": "obj_1",
+      "type": "find",
+      "target": "brass_key",
+      "description": "Find the brass key",
+      "required": 1
+    }
+  ],
+  "rewards": {
+    "items": ["Silver Ring"],
+    "relationships": {"old_man": 10}
+  }
+}
+
+accept_quest:
+{
+  "type": "accept_quest",
+  "quest_id": "quest_001"
+}
+
+decline_quest:
+{
+  "type": "decline_quest",
+  "quest_id": "quest_001"
+}
+
+abandon_quest:
+{
+  "type": "abandon_quest",
+  "quest_id": "quest_001"
 }
 
 IMPORTANT MOVEMENT RULES:
@@ -146,8 +204,8 @@ NPC RULES:
   summarize it briefly in the "topic" field.
 - Only interact with NPCs present in the CURRENT LOCATION. Do not invent
   NPCs that are not listed.
-- Do not teleport NPCs, change their state, give the player items, start
-  quests, or alter the world. Python handles all state changes.
+- Do not teleport NPCs, change their state, give the player items,
+  or alter the world. Python handles all state changes.
 - The NPC's reply is narration only. Keep it consistent with the NPC's
   description, disposition, and memory in the game state.
 
@@ -542,8 +600,8 @@ NPC ACTION RULES:
 - NPC actions are optional action proposals, not commands. The NPC
   proposes; Python validates and executes them.
 - Only explicitly implemented NPC action types are permitted. In this
-  version, NPCs may use "interact" and "interact_object". NPCs cannot
-  move, take, drop, use, open, wait, or change world state.
+  version, NPCs may use "interact", "interact_object", and "attack".
+  NPCs cannot move, take, drop, use, open, or wait.
 - Python validates each NPC action: the actor must exist, be an NPC, be
   at the current location, and the target must be valid. Invalid NPC
   actions fail safely and do not change game state.
@@ -756,6 +814,67 @@ NPC GOAL TRANSFER RULES:
   conversation action result confirms it via the goal_update datum.
 - If a goal_transfer proposal is invalid, the AI must narrate the
   conversation normally without mentioning any transfer attempt.
+
+COMBAT RULES:
+
+- Use the "attack" action when the player wants to fight, attack, hit,
+  strike, or damage an NPC.
+- Set "target" to the NPC's name or id from the supplied game state.
+- If the player mentions using a specific weapon (e.g., "attack with
+  sword", "hit with knife"), include the weapon name in the "weapon"
+  field.
+- If the player does not specify a weapon, leave "weapon" as an empty
+  string (bare hands).
+- Only attack NPCs present in the CURRENT LOCATION. Do not attack NPCs
+  that are not listed.
+- Do not attack yourself or attempt to attack non-NPC entities.
+- Combat damage is deterministic: bare hands = 5, weapon = 15.
+- NPCs deal 10 damage when attacking the player.
+- If an NPC's HP reaches 0, the NPC dies and is removed from the
+  location.
+- If the player's HP reaches 0, the game is over.
+- Attack narration should describe the action briefly: what weapon
+  (if any) was used, the strike, and the result.
+- When an NPC attacks the player, narrate the NPC's action and its
+  result (damage dealt, HP change).
+- Do NOT invent NPC attack actions unless this response explicitly
+  contains them.
+- NPC attacks do not happen autonomously. An NPC acts only when this
+  response explicitly contains that action.
+
+QUEST RULES:
+
+- Use "offer_quest" when an NPC wants to give the player a quest.
+  The NPC proposes the quest; Python validates and creates it.
+- Use "accept_quest" when the player agrees to take on an offered quest.
+- Use "decline_quest" when the player refuses an offered quest.
+- Use "abandon_quest" when the player gives up on an active quest.
+- Quest objective types are: "kill", "find", "talk", "visit".
+- "kill" targets must be NPC ids that exist in the game world.
+- "find" targets are item names.
+- "talk" targets must be NPC ids that exist in the game world.
+- "visit" targets must be location ids that exist in the game world.
+- Quest progress is automatic. When the player kills an NPC, picks up
+  an item, talks to an NPC, or visits a location, Python checks all
+  active quests for matching objectives and advances them.
+- Do NOT claim a quest was created, accepted, progressed, completed,
+  failed, or abandoned unless the action result confirms it.
+- Do NOT invent quest objective completion. Python tracks progress
+  automatically from the player's actions.
+- Do NOT invent quest IDs that conflict with existing quests shown
+  in the QUESTS context section.
+- A quest is completed automatically when all its objectives are
+  complete. Completion applies rewards exactly once.
+- A quest fails if its giver NPC dies. Failed quests receive no
+  rewards.
+- The AI must never claim rewards were given unless the quest
+  completion result confirms it.
+- Quest narration should describe the NPC offering, accepting,
+  declining, or acknowledging the quest naturally.
+- When narrating quest completion, describe the NPC acknowledging
+  the player's success.
+- Do NOT invent quest chains, time limits, or complex quest logic.
+  Quests are simple: offer, accept, progress, complete.
 
 OTHER RULES:
 

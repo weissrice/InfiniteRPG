@@ -1,7 +1,7 @@
 ﻿import re
 from typing import Any, Dict
 
-from .state import GameState, Interactable, NPC
+from .state import GameState, Interactable, NPC, Quest, QuestObjective
 from .generation import generate_location
 from .routines import advance_npc_routines, update_npc_activities
 from .world import add_generated_location
@@ -41,29 +41,47 @@ def move_player(
 
         if direction.lower() == destination_lower:
             game.player.location = target_id
+            quest_events = _check_quest_progress(
+                game, "visit", target_id,
+            )
 
             return ActionResult(
                 True,
                 f"You move to {target.name if target else target_id}.",
-                {"location": target_id},
+                {
+                    "location": target_id,
+                    "quest_events": quest_events if quest_events else [],
+                },
             )
 
         if target_id.lower() == destination_lower:
             game.player.location = target_id
+            quest_events = _check_quest_progress(
+                game, "visit", target_id,
+            )
 
             return ActionResult(
                 True,
                 f"You move to {target.name if target else target_id}.",
-                {"location": target_id},
+                {
+                    "location": target_id,
+                    "quest_events": quest_events if quest_events else [],
+                },
             )
 
         if target and target.name.lower() == destination_lower:
             game.player.location = target_id
+            quest_events = _check_quest_progress(
+                game, "visit", target_id,
+            )
 
             return ActionResult(
                 True,
                 f"You move to {target.name}.",
-                {"location": target_id},
+                {
+                    "location": target_id,
+                    "quest_events": quest_events if quest_events else [],
+                },
             )
 
     aliases = {
@@ -108,22 +126,36 @@ def move_player(
             if alias == destination_lower:
                 game.player.location = target_id
                 target = game.world.locations.get(target_id)
+                quest_events = _check_quest_progress(
+                    game, "visit", target_id,
+                )
 
                 return ActionResult(
                     True,
                     f"You move to {target.name if target else target_id}.",
-                    {"location": target_id},
+                    {
+                        "location": target_id,
+                        "quest_events": (
+                            quest_events if quest_events else []
+                        ),
+                    },
                 )
 
     for direction, target_id in location.exits.items():
         if direction.lower() in destination_lower:
             game.player.location = target_id
             target = game.world.locations.get(target_id)
+            quest_events = _check_quest_progress(
+                game, "visit", target_id,
+            )
 
             return ActionResult(
                 True,
                 f"You move to {target.name if target else target_id}.",
-                {"location": target_id},
+                {
+                    "location": target_id,
+                    "quest_events": quest_events if quest_events else [],
+                },
             )
 
     for direction, target_id in location.exits.items():
@@ -134,11 +166,17 @@ def move_player(
 
         if target.name.lower() in destination_lower:
             game.player.location = target_id
+            quest_events = _check_quest_progress(
+                game, "visit", target_id,
+            )
 
             return ActionResult(
                 True,
                 f"You move to {target.name}.",
-                {"location": target_id},
+                {
+                    "location": target_id,
+                    "quest_events": quest_events if quest_events else [],
+                },
             )
 
     if ai is not None:
@@ -150,6 +188,9 @@ def move_player(
 
         if generated is not None:
             game.player.location = generated.id
+            quest_events = _check_quest_progress(
+                game, "visit", generated.id,
+            )
 
             return ActionResult(
                 True,
@@ -157,6 +198,7 @@ def move_player(
                 {
                     "location": generated.id,
                     "generated": True,
+                    "quest_events": quest_events if quest_events else [],
                 },
             )
 
@@ -489,6 +531,11 @@ def interact(
                 f"The player spoke with {npc.name}.",
             )
 
+        # Quest: talk objective progress
+        quest_events = _check_quest_progress(
+            game, "talk", npc.id,
+        )
+
         return ActionResult(
             True,
             (
@@ -500,6 +547,7 @@ def interact(
                 "name": npc.name,
                 "disposition": npc.disposition,
                 "memory": list(npc.memory),
+                "quest_events": quest_events if quest_events else [],
             },
         )
 
@@ -1070,10 +1118,18 @@ def take_item(
     location.items.remove(matching_item)
     game.player.inventory.append(matching_item)
 
+    # Quest: find objective progress
+    quest_events = _check_quest_progress(
+        game, "find", matching_item,
+    )
+
     return ActionResult(
         True,
         f"You take the {matching_item}.",
-        {"item": matching_item},
+        {
+            "item": matching_item,
+            "quest_events": quest_events if quest_events else [],
+        },
     )
 
 
@@ -1228,9 +1284,881 @@ def wait(
     )
 
 
+# ---------------------------------------------------------
+# COMBAT
+# ---------------------------------------------------------
+
+_WEAPON_KEYWORDS = frozenset({
+    "sword",
+    "axe",
+    "knife",
+    "blade",
+    "club",
+    "mace",
+    "spear",
+    "hammer",
+})
+
+PLAYER_BARE_HANDS_DAMAGE = 5
+PLAYER_WEAPON_DAMAGE = 15
+NPC_ATTACK_DAMAGE = 10
+
+
+def _find_weapon(inventory: list[str], weapon_name: str) -> str | None:
+    """Return the matching inventory item if it is a recognized weapon.
+
+    Returns the original inventory string on match, or None.
+    """
+
+    weapon_lower = weapon_name.lower().strip()
+
+    if not weapon_lower:
+        return None
+
+    for item in inventory:
+        if item.lower() == weapon_lower:
+            if any(kw in item.lower() for kw in _WEAPON_KEYWORDS):
+                return item
+
+    for item in inventory:
+        if weapon_lower in item.lower():
+            if any(kw in item.lower() for kw in _WEAPON_KEYWORDS):
+                return item
+
+    return None
+
+
+def _apply_damage(target_hp: int, target_max_hp: int, damage: int):
+    """Subtract damage from HP, clamp to 0, return (new_hp, is_dead)."""
+
+    new_hp = max(0, target_hp - damage)
+    return new_hp, new_hp <= 0
+
+
+def attack(
+    game: GameState,
+    attacker: str,
+    target: str,
+    weapon: str = "",
+) -> ActionResult:
+    """Execute a combat attack.
+
+    ``attacker`` is ``"player"`` for player-initiated attacks, or an
+    NPC id for NPC-initiated attacks.  ``target`` is an NPC id/name
+    for player attacks, or ``"player"``/the player name for NPC attacks.
+    """
+
+    location = game.current_location()
+
+    if location is None:
+        return ActionResult(
+            False,
+            "You are nowhere.",
+            {"attacker": attacker, "target": target,
+             "reason": "no_location"},
+        )
+
+    is_player_attack = attacker == "player"
+
+    # ----------------------------------------------------------
+    # Resolve attacker
+    # ----------------------------------------------------------
+
+    attacker_npc = None
+
+    if not is_player_attack:
+        attacker_npc = _find_any_npc(game, attacker)
+
+        if attacker_npc is None:
+            return ActionResult(
+                False,
+                f"Attacker '{attacker}' does not exist.",
+                {"attacker": attacker, "target": target,
+                 "reason": "attacker_not_found"},
+            )
+
+        if attacker_npc.hp <= 0:
+            return ActionResult(
+                False,
+                f"{attacker_npc.name} is already dead.",
+                {"attacker": attacker, "target": target,
+                 "reason": "attacker_dead"},
+            )
+
+        if attacker_npc.id not in location.npcs:
+            return ActionResult(
+                False,
+                f"{attacker_npc.name} is not here.",
+                {"attacker": attacker, "target": target,
+                 "reason": "attacker_not_here"},
+            )
+
+    # ----------------------------------------------------------
+    # Resolve target
+    # ----------------------------------------------------------
+
+    target_is_player = False
+    target_npc = None
+
+    target_lower = target.lower().strip()
+
+    if is_player_attack:
+        target_npc = _find_npc(game, target)
+
+        if target_npc is None:
+            return ActionResult(
+                False,
+                f"Target '{target}' is not here.",
+                {"attacker": attacker, "target": target,
+                 "reason": "target_not_found"},
+            )
+
+        if target_npc.hp <= 0:
+            return ActionResult(
+                False,
+                f"{target_npc.name} is already dead.",
+                {"attacker": attacker, "target": target,
+                 "reason": "target_dead"},
+            )
+    else:
+        target_is_player = (
+            target_lower in {"traveler", "player", "you", "me"}
+            or (
+                target_lower
+                and (
+                    target_lower in game.player.name.lower()
+                    or game.player.name.lower() in target_lower
+                )
+            )
+        )
+
+        if not target_is_player:
+            return ActionResult(
+                False,
+                "NPCs can only attack the player in V1.",
+                {"attacker": attacker, "target": target,
+                 "reason": "invalid_target"},
+            )
+
+        if game.player.hp <= 0:
+            return ActionResult(
+                False,
+                "The player is already dead.",
+                {"attacker": attacker, "target": target,
+                 "reason": "target_dead"},
+            )
+
+    # ----------------------------------------------------------
+    # Self-target check
+    # ----------------------------------------------------------
+
+    if is_player_attack and target_npc is not None:
+        pass
+    elif not is_player_attack and target_is_player:
+        pass
+    else:
+        return ActionResult(
+            False,
+            "Cannot attack yourself.",
+            {"attacker": attacker, "target": target,
+             "reason": "self_target"},
+        )
+
+    # ----------------------------------------------------------
+    # Determine damage
+    # ----------------------------------------------------------
+
+    if is_player_attack:
+        weapon_match = _find_weapon(game.player.inventory, weapon)
+        if weapon_match:
+            damage = PLAYER_WEAPON_DAMAGE
+            used_weapon = weapon_match
+        else:
+            damage = PLAYER_BARE_HANDS_DAMAGE
+            used_weapon = ""
+    else:
+        damage = NPC_ATTACK_DAMAGE
+        used_weapon = ""
+
+    # ----------------------------------------------------------
+    # Apply damage
+    # ----------------------------------------------------------
+
+    if is_player_attack and target_npc is not None:
+        old_hp = target_npc.hp
+        new_hp, is_dead = _apply_damage(
+            target_npc.hp, target_npc.max_hp, damage,
+        )
+        target_npc.hp = new_hp
+
+        _record_npc_memory(
+            target_npc,
+            f"The player attacked {target_npc.name}"
+            + (f" with {used_weapon}." if used_weapon else "."),
+        )
+
+        for npc_id in location.npcs:
+            witness = game.world.npcs.get(npc_id)
+            if (
+                witness
+                and witness.id != target_npc.id
+                and witness.hp > 0
+            ):
+                if is_dead:
+                    _record_npc_memory(
+                        witness,
+                        f"The player killed {target_npc.name}.",
+                    )
+                else:
+                    _record_npc_memory(
+                        witness,
+                        f"The player attacked {target_npc.name}.",
+                    )
+
+        if is_dead:
+            if target_npc.id in location.npcs:
+                location.npcs.remove(target_npc.id)
+
+            # Quest: kill objective progress
+            quest_events = _check_quest_progress(
+                game, "kill", target_npc.id,
+            )
+
+            # Quest: fail quests where killed NPC was the giver
+            for quest in game.quests.values():
+                if quest.giver == target_npc.id:
+                    _fail_quest(game, quest)
+
+        else:
+            quest_events = []
+
+        return ActionResult(
+            True,
+            (
+                f"You attack {target_npc.name}"
+                + (f" with {used_weapon}" if used_weapon else "")
+                + f" for {damage} damage."
+                + (
+                    f" {target_npc.name} is dead."
+                    if is_dead
+                    else ""
+                )
+            ),
+            {
+                "attacker": "player",
+                "target": target_npc.id,
+                "weapon": used_weapon,
+                "damage": damage,
+                "target_hp": target_npc.hp,
+                "target_max_hp": target_npc.max_hp,
+                "target_dead": is_dead,
+                "quest_events": quest_events if quest_events else [],
+            },
+        )
+
+    # NPC attacks player
+    if attacker_npc is not None:
+        old_hp = game.player.hp
+        new_hp, is_dead = _apply_damage(
+            game.player.hp, game.player.max_hp, damage,
+        )
+        game.player.hp = new_hp
+
+        _record_npc_memory(
+            attacker_npc,
+            f"{attacker_npc.name} attacked the player"
+            + (f" with {used_weapon}." if used_weapon else "."),
+        )
+
+        for npc_id in location.npcs:
+            witness = game.world.npcs.get(npc_id)
+            if (
+                witness
+                and witness.id != attacker_npc.id
+                and witness.hp > 0
+            ):
+                _record_npc_memory(
+                    witness,
+                    f"{attacker_npc.name} attacked the player.",
+                )
+
+        data: dict[str, Any] = {
+            "attacker": attacker_npc.id,
+            "target": "player",
+            "weapon": used_weapon,
+            "damage": damage,
+            "target_hp": game.player.hp,
+            "target_max_hp": game.player.max_hp,
+            "target_dead": is_dead,
+        }
+
+        if is_dead:
+            data["game_over"] = True
+
+        return ActionResult(
+            True,
+            (
+                f"{attacker_npc.name} attacks you"
+                + (f" with {used_weapon}" if used_weapon else "")
+                + f" for {damage} damage."
+                + (
+                    " You are dead."
+                    if is_dead
+                    else ""
+                )
+            ),
+            data,
+        )
+
+    return ActionResult(
+        False,
+        "Attack could not be resolved.",
+        {"attacker": attacker, "target": target,
+         "reason": "unresolved"},
+    )
+
+
 def _time_to_minutes(time_string: str) -> int:
     try:
         hours, minutes = time_string.split(":")
         return int(hours) * 60 + int(minutes)
     except (ValueError, TypeError):
         return 0
+
+
+# ---------------------------------------------------------
+# QUESTS
+# ---------------------------------------------------------
+
+_VALID_QUEST_OBJECTIVE_TYPES = frozenset({
+    "kill", "find", "talk", "visit",
+})
+
+
+def _find_quest(game: GameState, quest_id: str) -> Quest | None:
+    """Return a quest by id, or None."""
+    return game.quests.get(quest_id)
+
+
+def _check_quest_progress(
+    game: GameState,
+    objective_type: str,
+    target: str,
+) -> list[dict]:
+    """Check all active quests for matching objectives and advance them.
+
+    Returns a list of dicts describing progress events for the result data.
+    """
+
+    events = []
+
+    for quest in game.quests.values():
+        if quest.state != "active":
+            continue
+
+        for obj in quest.objectives:
+            if obj.completed:
+                continue
+
+            if obj.type != objective_type:
+                continue
+
+            target_lower = obj.target.lower().strip().replace("_", " ")
+            match_lower = target.lower().strip().replace("_", " ")
+
+            matched = (
+                target_lower == match_lower
+                or match_lower in target_lower
+                or target_lower in match_lower
+            )
+
+            if not matched:
+                continue
+
+            old_current = obj.current
+            obj.current = min(obj.current + 1, obj.required)
+
+            events.append({
+                "quest_id": quest.id,
+                "objective_id": obj.id,
+                "type": objective_type,
+                "target": target,
+                "old_current": old_current,
+                "new_current": obj.current,
+            })
+
+        _check_and_complete_quest(game, quest)
+
+    return events
+
+
+def _check_and_complete_quest(
+    game: GameState,
+    quest: Quest,
+) -> bool:
+    """Check if a quest's objectives are all complete. If so, complete it.
+
+    Returns True if the quest was completed.
+    """
+
+    if quest.state != "active":
+        return False
+
+    if not all(obj.completed for obj in quest.objectives):
+        return False
+
+    quest.state = "completed"
+
+    # Apply rewards
+    _apply_quest_rewards(game, quest)
+
+    # Record memory on the quest giver
+    giver = game.world.npcs.get(quest.giver)
+    if giver is not None:
+        _record_npc_memory(
+            giver,
+            f"The player completed the quest: {quest.title}.",
+        )
+
+    return True
+
+
+def _apply_quest_rewards(
+    game: GameState,
+    quest: Quest,
+) -> None:
+    """Apply quest rewards exactly once. Called on quest completion."""
+
+    rewards = quest.rewards
+
+    # Item rewards
+    items = rewards.get("items", [])
+    for item in items:
+        if isinstance(item, str) and item:
+            game.player.inventory.append(item)
+
+    # Relationship rewards
+    relationships = rewards.get("relationships", {})
+    for npc_id, delta in relationships.items():
+        if not isinstance(delta, (int, float)):
+            continue
+        npc = game.world.npcs.get(npc_id)
+        if npc is not None:
+            _adjust_relationship(npc, game.player.name, int(delta))
+            _adjust_relationship(npc, npc.name, 0)  # no-op on self
+
+
+def _fail_quest(game: GameState, quest: Quest) -> None:
+    """Mark a quest as failed. Called when the quest giver dies."""
+
+    if quest.state not in ("offered", "active"):
+        return
+
+    quest.state = "failed"
+
+
+def offer_quest(
+    game: GameState,
+    actor: str,
+    quest_id: str,
+    title: str,
+    description: str,
+    objectives: list,
+    rewards: dict | None = None,
+) -> ActionResult:
+    """NPC offers a quest to the player. Python validates everything."""
+
+    # Validate actor
+    actor_npc = _find_any_npc(game, actor)
+    if actor_npc is None:
+        return ActionResult(
+            False,
+            f"NPC '{actor}' does not exist.",
+            {"reason": "actor_not_found"},
+        )
+
+    if actor_npc.hp <= 0:
+        return ActionResult(
+            False,
+            f"{actor_npc.name} is dead.",
+            {"reason": "actor_dead"},
+        )
+
+    location = game.current_location()
+    if location is None:
+        return ActionResult(
+            False,
+            "You are nowhere.",
+            {"reason": "no_location"},
+        )
+
+    if actor_npc.id not in location.npcs:
+        return ActionResult(
+            False,
+            f"{actor_npc.name} is not here.",
+            {"reason": "actor_not_here"},
+        )
+
+    # Validate quest_id
+    if not quest_id or not isinstance(quest_id, str):
+        return ActionResult(
+            False,
+            "Quest ID must be a non-empty string.",
+            {"reason": "invalid_quest_id"},
+        )
+
+    quest_id = quest_id.strip()
+    if quest_id in game.quests:
+        return ActionResult(
+            False,
+            f"Quest '{quest_id}' already exists.",
+            {"reason": "duplicate_quest_id"},
+        )
+
+    # Validate title and description
+    if not title or not isinstance(title, str):
+        return ActionResult(
+            False,
+            "Quest title must be a non-empty string.",
+            {"reason": "invalid_title"},
+        )
+
+    if not description or not isinstance(description, str):
+        return ActionResult(
+            False,
+            "Quest description must be a non-empty string.",
+            {"reason": "invalid_description"},
+        )
+
+    # Validate objectives
+    if not objectives or not isinstance(objectives, list):
+        return ActionResult(
+            False,
+            "Quest must have at least one objective.",
+            {"reason": "no_objectives"},
+        )
+
+    parsed_objectives = []
+    seen_obj_ids = set()
+
+    for i, obj_raw in enumerate(objectives):
+        if not isinstance(obj_raw, dict):
+            return ActionResult(
+                False,
+                f"Objective {i} must be a dict.",
+                {"reason": "invalid_objective", "index": i},
+            )
+
+        obj_id = obj_raw.get("id", "")
+        obj_type = obj_raw.get("type", "")
+        obj_target = obj_raw.get("target", "")
+        obj_desc = obj_raw.get("description", "")
+        obj_required = obj_raw.get("required", 1)
+
+        if not obj_id or not isinstance(obj_id, str):
+            return ActionResult(
+                False,
+                f"Objective {i} must have a non-empty string id.",
+                {"reason": "invalid_objective_id", "index": i},
+            )
+
+        obj_id = obj_id.strip()
+        if obj_id in seen_obj_ids:
+            return ActionResult(
+                False,
+                f"Duplicate objective id '{obj_id}' in quest.",
+                {"reason": "duplicate_objective_id", "index": i},
+            )
+        seen_obj_ids.add(obj_id)
+
+        if obj_type not in _VALID_QUEST_OBJECTIVE_TYPES:
+            return ActionResult(
+                False,
+                f"Invalid objective type '{obj_type}'. "
+                f"Valid types: {sorted(_VALID_QUEST_OBJECTIVE_TYPES)}.",
+                {"reason": "invalid_objective_type", "index": i},
+            )
+
+        if not obj_target or not isinstance(obj_target, str):
+            return ActionResult(
+                False,
+                f"Objective {i} must have a non-empty string target.",
+                {"reason": "invalid_objective_target", "index": i},
+            )
+
+        if not obj_desc or not isinstance(obj_desc, str):
+            return ActionResult(
+                False,
+                f"Objective {i} must have a non-empty string description.",
+                {"reason": "invalid_objective_description", "index": i},
+            )
+
+        if not isinstance(obj_required, (int, float)) or obj_required < 1:
+            return ActionResult(
+                False,
+                f"Objective {i} required must be >= 1.",
+                {"reason": "invalid_objective_required", "index": i},
+            )
+
+        obj_required = int(obj_required)
+
+        # Validate target exists
+        obj_target_stripped = obj_target.strip()
+
+        if obj_type == "kill":
+            target_npc = _find_any_npc(game, obj_target_stripped)
+            if target_npc is None:
+                return ActionResult(
+                    False,
+                    f"Kill target '{obj_target_stripped}' does not exist.",
+                    {"reason": "invalid_kill_target", "index": i},
+                )
+            # Use canonical NPC id as target
+            obj_target_stripped = target_npc.id
+
+        elif obj_type == "talk":
+            target_npc = _find_any_npc(game, obj_target_stripped)
+            if target_npc is None:
+                return ActionResult(
+                    False,
+                    f"Talk target '{obj_target_stripped}' does not exist.",
+                    {"reason": "invalid_talk_target", "index": i},
+                )
+            obj_target_stripped = target_npc.id
+
+        elif obj_type == "visit":
+            target_loc = game.world.locations.get(obj_target_stripped)
+            if target_loc is None:
+                # Try fuzzy match
+                found = False
+                for loc_id, loc in game.world.locations.items():
+                    if (
+                        loc_id.lower() == obj_target_stripped.lower()
+                        or loc.name.lower() == obj_target_stripped.lower()
+                        or obj_target_stripped.lower() in loc.name.lower()
+                    ):
+                        obj_target_stripped = loc_id
+                        found = True
+                        break
+                if not found:
+                    return ActionResult(
+                        False,
+                        f"Visit target '{obj_target_stripped}' "
+                        f"does not exist.",
+                        {"reason": "invalid_visit_target", "index": i},
+                    )
+
+        elif obj_type == "find":
+            # Find targets are item names. We allow any string since items
+            # are bare strings and may not exist yet in the world.
+            pass
+
+        parsed_objectives.append(QuestObjective(
+            id=obj_id,
+            type=obj_type,
+            target=obj_target_stripped,
+            description=obj_desc,
+            required=obj_required,
+            current=0,
+        ))
+
+    # Validate rewards
+    if rewards is None:
+        rewards = {}
+
+    if not isinstance(rewards, dict):
+        return ActionResult(
+            False,
+            "Rewards must be a dict.",
+            {"reason": "invalid_rewards"},
+        )
+
+    reward_items = rewards.get("items", [])
+    if not isinstance(reward_items, list):
+        return ActionResult(
+            False,
+            "Reward items must be a list.",
+            {"reason": "invalid_reward_items"},
+        )
+
+    for item in reward_items:
+        if not isinstance(item, str) or not item:
+            return ActionResult(
+                False,
+                "Each reward item must be a non-empty string.",
+                {"reason": "invalid_reward_item"},
+            )
+
+    reward_rels = rewards.get("relationships", {})
+    if not isinstance(reward_rels, dict):
+        return ActionResult(
+            False,
+            "Reward relationships must be a dict.",
+            {"reason": "invalid_reward_relationships"},
+        )
+
+    for npc_id, delta in reward_rels.items():
+        if not isinstance(delta, (int, float)):
+            return ActionResult(
+                False,
+                f"Relationship delta for '{npc_id}' must be a number.",
+                {"reason": "invalid_relationship_delta"},
+            )
+        npc = game.world.npcs.get(npc_id)
+        if npc is None:
+            return ActionResult(
+                False,
+                f"Relationship target NPC '{npc_id}' does not exist.",
+                {"reason": "invalid_relationship_target"},
+            )
+
+    # Create the quest
+    quest = Quest(
+        id=quest_id,
+        title=title.strip(),
+        description=description.strip(),
+        giver=actor_npc.id,
+        state="offered",
+        objectives=parsed_objectives,
+        rewards=rewards,
+        offered_at=game.player.location,
+        offered_time=game.world.time,
+    )
+
+    game.quests[quest_id] = quest
+
+    # Record memory on the quest giver
+    _record_npc_memory(
+        actor_npc,
+        f"The player was offered the quest: {quest.title}.",
+    )
+
+    return ActionResult(
+        True,
+        f"{actor_npc.name} offers you a quest: {quest.title}.",
+        {
+            "quest_id": quest_id,
+            "quest_title": quest.title,
+            "giver": actor_npc.id,
+        },
+    )
+
+
+def accept_quest(
+    game: GameState,
+    quest_id: str,
+) -> ActionResult:
+    """Player accepts an offered quest."""
+
+    quest = _find_quest(game, quest_id)
+    if quest is None:
+        return ActionResult(
+            False,
+            f"Quest '{quest_id}' does not exist.",
+            {"reason": "quest_not_found"},
+        )
+
+    if quest.state != "offered":
+        return ActionResult(
+            False,
+            f"Quest '{quest.title}' is not in offered state.",
+            {"reason": "invalid_state", "state": quest.state},
+        )
+
+    quest.state = "active"
+
+    giver = game.world.npcs.get(quest.giver)
+    if giver is not None:
+        _record_npc_memory(
+            giver,
+            f"The player accepted the quest: {quest.title}.",
+        )
+
+    return ActionResult(
+        True,
+        f"You accept the quest: {quest.title}.",
+        {
+            "quest_id": quest_id,
+            "quest_title": quest.title,
+        },
+    )
+
+
+def decline_quest(
+    game: GameState,
+    quest_id: str,
+) -> ActionResult:
+    """Player declines an offered quest. Quest is removed."""
+
+    quest = _find_quest(game, quest_id)
+    if quest is None:
+        return ActionResult(
+            False,
+            f"Quest '{quest_id}' does not exist.",
+            {"reason": "quest_not_found"},
+        )
+
+    if quest.state != "offered":
+        return ActionResult(
+            False,
+            f"Quest '{quest.title}' is not in offered state.",
+            {"reason": "invalid_state", "state": quest.state},
+        )
+
+    giver = game.world.npcs.get(quest.giver)
+    if giver is not None:
+        _record_npc_memory(
+            giver,
+            f"The player declined the quest: {quest.title}.",
+        )
+
+    del game.quests[quest_id]
+
+    return ActionResult(
+        True,
+        f"You decline the quest: {quest.title}.",
+        {
+            "quest_id": quest_id,
+            "quest_title": quest.title,
+        },
+    )
+
+
+def abandon_quest(
+    game: GameState,
+    quest_id: str,
+) -> ActionResult:
+    """Player abandons an active quest."""
+
+    quest = _find_quest(game, quest_id)
+    if quest is None:
+        return ActionResult(
+            False,
+            f"Quest '{quest_id}' does not exist.",
+            {"reason": "quest_not_found"},
+        )
+
+    if quest.state != "active":
+        return ActionResult(
+            False,
+            f"Quest '{quest.title}' is not active.",
+            {"reason": "invalid_state", "state": quest.state},
+        )
+
+    quest.state = "abandoned"
+
+    giver = game.world.npcs.get(quest.giver)
+    if giver is not None:
+        _record_npc_memory(
+            giver,
+            f"The player abandoned the quest: {quest.title}.",
+        )
+
+    return ActionResult(
+        True,
+        f"You abandon the quest: {quest.title}.",
+        {
+            "quest_id": quest_id,
+            "quest_title": quest.title,
+        },
+    )

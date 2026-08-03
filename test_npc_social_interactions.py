@@ -86,8 +86,8 @@ results.append(check(
     in normalized,
 ))
 results.append(check(
-    "NPCs may use only interact and interact_object (preserved)",
-    'may use "interact" and "interact_object"' in normalized,
+    "NPCs may use interact, interact_object, and attack (preserved)",
+    'may use "interact", "interact_object", and "attack"' in normalized,
 ))
 
 print("\n=== 1. Seed data - Sarah, the second persistent NPC ===")
