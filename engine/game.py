@@ -683,6 +683,39 @@ NPC SOCIAL INTERACTION RULES:
   contains the action. They are not autonomous and do not occur between
   turns or while the player is elsewhere.
 
+NPC KNOWLEDGE TRANSFER RULES:
+
+- CRITICAL: AUTHORITATIVE VS SUBJECTIVE HIERARCHY
+  Knowledge, like inventory, location, and relationships, is part of the
+  authoritative game state. The supplied Knowledge entries are facts each
+  NPC currently knows. The AI must never invent, add, remove, or
+  rearrange knowledge entries except through the mechanism below.
+
+- During an NPC→NPC conversation, The AI may propose a candidate
+  knowledge string using the optional "knowledge_transfer" field:
+  {"type": "interact", "actor": "old_man", "target": "sarah",
+   "topic": "the upstairs door",
+   "knowledge_transfer": "The upstairs door is old and has a lock."}
+- The AI must only propose a knowledge_transfer string that exactly
+  matches an entry in the actor NPC's supplied Knowledge list. The AI
+  must NOT propose knowledge the actor does not possess.
+- Python validates whether the actor actually possesses this exact
+  knowledge string and whether the target already knows it. If the
+  actor does not possess it, or the target already knows it, or the
+  conversation is not a genuinely new NPC-to-NPC conversation, the
+  transfer is silently rejected and the conversation proceeds normally.
+- Knowledge transfer is independent of conversation success. A
+  conversation can succeed without knowledge transfer, and a rejected
+  knowledge transfer does not cause the conversation to fail.
+- Knowledge transfer does NOT affect relationships. It does NOT modify
+  beliefs, goals, memory, or any other state. It only appends the
+  exact string to the target NPC's Knowledge list when all conditions
+  are met.
+- The AI must never claim that knowledge was transferred unless the
+  conversation action result confirms it via the knowledge_update datum.
+- If a knowledge_transfer proposal is invalid, the AI must narrate the
+  conversation normally without mentioning any transfer attempt.
+
 OTHER RULES:
 
 - Only use entities that exist in the supplied game state.
@@ -950,6 +983,7 @@ Interpret the player's action and return the required JSON.
                 action.get("actor", ""),
                 action.get("target", ""),
                 action.get("topic", ""),
+                action.get("knowledge_transfer", ""),
             )
 
         return npc_interact_object(

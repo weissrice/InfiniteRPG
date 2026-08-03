@@ -514,6 +514,7 @@ def npc_interact(
     actor: str,
     target: str,
     topic: str = "",
+    knowledge_transfer: str = "",
 ) -> ActionResult:
     """Handle an NPC-initiated interact (dialogue) event.
 
@@ -623,6 +624,22 @@ def npc_interact(
             "target_score": target_score,
         }
 
+    knowledge_update = None
+
+    if (
+        knowledge_transfer
+        and not target_is_player
+        and is_new_event
+    ):
+        kt_lower = knowledge_transfer.strip()
+        if (
+            kt_lower
+            and kt_lower in npc.knowledge
+            and kt_lower not in target_npc.knowledge
+        ):
+            target_npc.knowledge.append(kt_lower)
+            knowledge_update = {"knowledge": kt_lower}
+
     return ActionResult(
         True,
         (
@@ -634,6 +651,7 @@ def npc_interact(
             "target": target_data,
             "topic": topic_lower,
             "relationship_update": relationship_update,
+            "knowledge_update": knowledge_update,
         },
     )
 
