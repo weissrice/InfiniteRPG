@@ -1303,6 +1303,14 @@ PLAYER_BARE_HANDS_DAMAGE = 5
 PLAYER_WEAPON_DAMAGE = 15
 NPC_ATTACK_DAMAGE = 10
 
+# Progression
+XP_PER_LEVEL = 100
+XP_PER_NPC_KILL = 50
+
+_VALID_STATS = frozenset({
+    "strength", "vitality", "agility", "intelligence",
+})
+
 
 def _find_weapon(inventory: list[str], weapon_name: str) -> str | None:
     """Return the matching inventory item if it is a recognized weapon.
@@ -1333,6 +1341,166 @@ def _apply_damage(target_hp: int, target_max_hp: int, damage: int):
 
     new_hp = max(0, target_hp - damage)
     return new_hp, new_hp <= 0
+
+
+# ---------------------------------------------------------
+# PROGRESSION
+# ---------------------------------------------------------
+
+
+def _recalculate_max_hp(game: GameState) -> None:
+    """Derive max_hp from Vitality. Adjust current HP proportionally."""
+
+    player = game.player
+    new_max = 100 + ((player.vitality - 10) * 5)
+    new_max = max(1, new_max)
+
+    if new_max != player.max_hp:
+        delta = new_max - player.max_hp
+        player.max_hp = new_max
+        player.hp = min(player.hp + delta, player.max_hp)
+
+
+def _process_level_ups(game: GameState) -> dict:
+    """Process all pending level-ups. Returns progression data dict."""
+
+    player = game.player
+    level_ups = 0
+
+    while player.xp >= player.level * XP_PER_LEVEL:
+        player.level += 1
+        player.stat_points += 1
+        level_ups += 1
+
+    if level_ups == 0:
+        return {
+            "level_ups": 0,
+            "new_level": player.level,
+            "stat_points_gained": 0,
+        }
+
+    return {
+        "level_ups": level_ups,
+        "new_level": player.level,
+        "stat_points_gained": level_ups,
+    }
+
+
+def _award_xp(
+    game: GameState,
+    amount: int,
+    source: str = "",
+) -> ActionResult:
+    """Award XP to the player. Process level-ups. Return result."""
+
+    if not isinstance(amount, (int, float)) or amount <= 0:
+        return ActionResult(
+            False,
+            "Invalid XP amount.",
+            {"reason": "invalid_xp_amount"},
+        )
+
+    amount = int(amount)
+    player = game.player
+
+    old_xp = player.xp
+    old_level = player.level
+    old_stat_points = player.stat_points
+
+    player.xp += amount
+
+    level_data = _process_level_ups(game)
+
+    levels_gained = level_data["level_ups"]
+    stat_points_gained = level_data["stat_points_gained"]
+
+    message = f"Gained {amount} XP."
+    if levels_gained > 0:
+        message += (
+            f" Level up! Now level {player.level}."
+            f" +{stat_points_gained} stat point(s)."
+        )
+
+    return ActionResult(
+        True,
+        message,
+        {
+            "xp_gained": amount,
+            "xp_total": player.xp,
+            "level": player.level,
+            "level_ups": levels_gained,
+            "stat_points": player.stat_points,
+            "source": source,
+        },
+    )
+
+
+def allocate_stat(
+    game: GameState,
+    stat: str,
+    amount: int = 1,
+) -> ActionResult:
+    """Allocate stat points to a player attribute."""
+
+    player = game.player
+
+    if not stat or stat.lower() not in _VALID_STATS:
+        return ActionResult(
+            False,
+            f"Invalid stat. Valid stats: {sorted(_VALID_STATS)}.",
+            {"reason": "invalid_stat"},
+        )
+
+    stat = stat.lower()
+
+    if not isinstance(amount, (int, float)) or amount <= 0:
+        return ActionResult(
+            False,
+            "Amount must be a positive integer.",
+            {"reason": "invalid_amount"},
+        )
+
+    amount = int(amount)
+
+    if amount > player.stat_points:
+        return ActionResult(
+            False,
+            f"Not enough stat points. Have {player.stat_points}.",
+            {"reason": "insufficient_stat_points"},
+        )
+
+    old_value = getattr(player, stat)
+    old_max_hp = player.max_hp
+    old_hp = player.hp
+
+    player.stat_points -= amount
+    setattr(player, stat, old_value + amount)
+
+    # Apply derived effects
+    if stat == "vitality":
+        _recalculate_max_hp(game)
+
+    hp_change = player.hp - old_hp
+
+    message = (
+        f"Allocated {amount} point(s) to {stat}."
+        f" {stat.title()} is now {getattr(player, stat)}."
+    )
+    if stat == "vitality" and hp_change > 0:
+        message += f" Max HP is now {player.max_hp}."
+
+    return ActionResult(
+        True,
+        message,
+        {
+            "stat": stat,
+            "amount": amount,
+            "new_value": getattr(player, stat),
+            "stat_points": player.stat_points,
+            "max_hp": player.max_hp,
+            "hp": player.hp,
+        },
+    )
 
 
 def attack(
@@ -1476,6 +1644,10 @@ def attack(
         else:
             damage = PLAYER_BARE_HANDS_DAMAGE
             used_weapon = ""
+
+        strength_mod = game.player.strength - 10
+        damage += strength_mod
+        damage = max(1, damage)
     else:
         damage = NPC_ATTACK_DAMAGE
         used_weapon = ""
@@ -1529,8 +1701,14 @@ def attack(
                 if quest.giver == target_npc.id:
                     _fail_quest(game, quest)
 
+            # Progression: XP for kill
+            xp_result = _award_xp(game, XP_PER_NPC_KILL, "npc_kill")
+
         else:
             quest_events = []
+            xp_result = None
+
+        result_xp = xp_result.data if is_dead and xp_result else {}
 
         return ActionResult(
             True,
@@ -1553,6 +1731,7 @@ def attack(
                 "target_max_hp": target_npc.max_hp,
                 "target_dead": is_dead,
                 "quest_events": quest_events if quest_events else [],
+                "xp": result_xp,
             },
         )
 
@@ -1746,6 +1925,11 @@ def _apply_quest_rewards(
         if npc is not None:
             _adjust_relationship(npc, game.player.name, int(delta))
             _adjust_relationship(npc, npc.name, 0)  # no-op on self
+
+    # XP rewards
+    xp = rewards.get("xp", 0)
+    if isinstance(xp, (int, float)) and xp > 0:
+        _award_xp(game, int(xp), "quest_completion")
 
 
 def _fail_quest(game: GameState, quest: Quest) -> None:

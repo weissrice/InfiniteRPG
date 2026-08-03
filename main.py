@@ -121,6 +121,50 @@ def show_quests(game):
             return
 
 
+def show_status(game):
+    """Display the player status screen."""
+
+    session = create_session()
+
+    while True:
+        print()
+        print("╔══════════════════════════════════════════════════════════════════╗")
+        print("║                          STATUS                                  ║")
+        print("╠══════════════════════════════════════════════════════════════════╣")
+        print()
+
+        player = game.player
+        xp_for_next = player.level * 100
+
+        print(f"  Name:            {player.name}")
+        print(f"  Level:           {player.level}")
+        print(f"  XP:              {player.xp}/{xp_for_next}")
+        print(f"  Stat Points:     {player.stat_points}")
+        print()
+        print(f"  HP:              {player.hp}/{player.max_hp}")
+        print()
+        print(f"  Strength:        {player.strength}")
+        print(f"  Vitality:        {player.vitality}")
+        print(f"  Agility:         {player.agility}")
+        print(f"  Intelligence:    {player.intelligence}")
+        print()
+
+        bare_damage = max(1, 5 + player.strength - 10)
+        weapon_damage = max(1, 15 + player.strength - 10)
+        print(f"  Bare Hands Dmg:  {bare_damage}")
+        print(f"  Weapon Dmg:      {weapon_damage}")
+
+        print()
+        print("╠══════════════════════════════════════════════════════════════════╣")
+        print("║                     Press ESC to close                          ║")
+        print("╚══════════════════════════════════════════════════════════════════╝")
+
+        result = session.prompt("\n")
+
+        if result == "__ESC__":
+            return
+
+
 def show_map(game):
     """Display the map screen."""
 
@@ -205,6 +249,10 @@ def main():
                 show_quests(game.game)
                 continue
 
+            if command == "/status":
+                show_status(game.game)
+                continue
+
             if command == "/map":
                 show_map(game.game)
                 continue
@@ -239,6 +287,7 @@ def main():
                 print("Commands:")
                 print("  /inventory  Open inventory")
                 print("  /quests     View quests")
+                print("  /status     View player stats")
                 print("  /map        Open map")
                 print("  /save       Save game")
                 print("  /load       Load game")

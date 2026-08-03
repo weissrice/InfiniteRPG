@@ -6,6 +6,7 @@ from .save import save_game, load_game
 from .actions import (
     accept_quest,
     abandon_quest,
+    allocate_stat,
     attack,
     decline_quest,
     drop_item,
@@ -265,6 +266,13 @@ Interpret the player's action and return the required JSON.
             return abandon_quest(
                 self.game,
                 action.get("quest_id", ""),
+            )
+
+        if action_type == "allocate_stat":
+            return allocate_stat(
+                self.game,
+                action.get("stat", ""),
+                action.get("amount", 1),
             )
 
         return type(

@@ -6,7 +6,7 @@ from .state import GameState, Player, World, Location, NPC, Quest, QuestObjectiv
 
 
 SAVE_FILE = Path("rpg_save.json")
-SAVE_VERSION = 1
+SAVE_VERSION = 2
 
 
 def save_game(game: GameState, path: Path = SAVE_FILE):

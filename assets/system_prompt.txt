@@ -40,6 +40,7 @@ offer_quest
 accept_quest
 decline_quest
 abandon_quest
+allocate_stat
 
 ACTION FORMATS:
 
@@ -145,6 +146,15 @@ abandon_quest:
   "type": "abandon_quest",
   "quest_id": "quest_001"
 }
+
+allocate_stat:
+{
+  "type": "allocate_stat",
+  "stat": "strength",
+  "amount": 1
+}
+
+Valid stats: strength, vitality, agility, intelligence
 
 IMPORTANT MOVEMENT RULES:
 
@@ -828,8 +838,8 @@ COMBAT RULES:
 - Only attack NPCs present in the CURRENT LOCATION. Do not attack NPCs
   that are not listed.
 - Do not attack yourself or attempt to attack non-NPC entities.
-- Combat damage is deterministic: bare hands = 5, weapon = 15.
-- NPCs deal 10 damage when attacking the player.
+- Combat damage is deterministic: bare hands = 5 + (STR - 10),
+  weapon = 15 + (STR - 10), minimum 1. NPCs deal 10 damage.
 - If an NPC's HP reaches 0, the NPC dies and is removed from the
   location.
 - If the player's HP reaches 0, the game is over.
@@ -875,6 +885,28 @@ QUEST RULES:
   the player's success.
 - Do NOT invent quest chains, time limits, or complex quest logic.
   Quests are simple: offer, accept, progress, complete.
+
+PLAYER PROGRESSION RULES:
+
+- Use "allocate_stat" when the player wants to spend stat points on
+  an attribute (e.g., "allocate strength", "put 2 points in vitality",
+  "upgrade agility").
+- Valid stats: strength, vitality, agility, intelligence.
+- "amount" defaults to 1 if not specified.
+- The player earns XP from killing NPCs (50 XP) and completing
+  quests (variable XP per quest).
+- Level-up threshold: level × 100 XP. XP never resets on level-up.
+- Each level grants +1 stat point.
+- Strength increases damage: bare hands = max(1, 5 + STR - 10),
+  weapon = max(1, 15 + STR - 10).
+- Vitality increases max HP: max_hp = 100 + ((VIT - 10) × 5).
+  Current HP increases by the same delta when allocating.
+- Agility and Intelligence have no effect in V1.
+- Do NOT narrate level-ups, stat allocation results, or XP gains
+  unless the action result confirms it. Python handles all
+  progression calculations.
+- Do NOT claim stat allocation succeeded unless the result confirms
+  it. Python validates stat points, valid stat names, and amounts.
 
 OTHER RULES:
 

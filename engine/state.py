@@ -12,6 +12,15 @@ class Player:
         default_factory=lambda: ["Rusty Key", "Torn Note"]
     )
 
+    # Progression
+    xp: int = 0
+    level: int = 1
+    stat_points: int = 0
+    strength: int = 10
+    vitality: int = 10
+    agility: int = 10
+    intelligence: int = 10
+
 
 @dataclass
 class QuestObjective:

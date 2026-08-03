@@ -23,6 +23,13 @@ def build_game_context(game: GameState) -> str:
         f"Name: {player.name}",
         f"HP: {player.hp}/{player.max_hp}",
         f"Location: {player.location}",
+        f"Level: {player.level}",
+        f"XP: {player.xp}/{player.level * 100}",
+        f"Stat Points: {player.stat_points}",
+        f"Strength: {player.strength}",
+        f"Vitality: {player.vitality}",
+        f"Agility: {player.agility}",
+        f"Intelligence: {player.intelligence}",
         "Inventory:",
     ]
 
@@ -31,6 +38,16 @@ def build_game_context(game: GameState) -> str:
             lines.append(f"- {item}")
     else:
         lines.append("- Empty")
+
+    lines.extend([
+        "",
+        "MECHANICAL NOTES:",
+        f"  Strength affects bare hands ({max(1, 5 + player.strength - 10)} damage)",
+        f"  and weapon damage ({max(1, 15 + player.strength - 10)} damage).",
+        f"  Vitality affects max HP ({player.max_hp}).",
+        f"  Agility and Intelligence have no effect in V1.",
+        f"  Each level grants +1 stat point. XP threshold: {player.level * 100}.",
+    ])
 
     if location:
         lines.extend([
