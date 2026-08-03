@@ -1282,6 +1282,13 @@ def wait(
         new_weather = compute_weather(game.world.seed, new_total)
         game.world.weather = new_weather
 
+    from .events import process_event_range
+
+    event_messages = []
+    new_events = process_event_range(game, old_total, new_total)
+    for ev in new_events:
+        event_messages.append(ev.description)
+
     routine_changes = advance_npc_routines(game)
     activity_changes = update_npc_activities(game)
 
@@ -1293,6 +1300,9 @@ def wait(
 
     if weather_change:
         data["weather_change"] = weather_change
+
+    if event_messages:
+        data["world_events"] = event_messages
 
     if routine_changes:
         data["routine_changes"] = routine_changes

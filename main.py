@@ -4,6 +4,7 @@ from prompt_toolkit.key_binding import KeyBindings
 from engine.game import GameEngine
 from engine.renderer import render_game
 from engine.weather import get_condition_description
+from engine.events import format_events_for_display
 
 
 def create_session():
@@ -343,6 +344,32 @@ def show_weather(game):
             return
 
 
+def show_events(game):
+    """Display the world events screen."""
+
+    session = create_session()
+
+    while True:
+        print()
+        print("╔══════════════════════════════════════════════════════════════════╗")
+        print("║                    RECENT WORLD EVENTS                           ║")
+        print("╠══════════════════════════════════════════════════════════════════╣")
+        print()
+
+        display = format_events_for_display(game.events)
+        print(display)
+
+        print()
+        print("╠══════════════════════════════════════════════════════════════════╣")
+        print("║                     Press ESC to close                          ║")
+        print("╚══════════════════════════════════════════════════════════════════╝")
+
+        result = session.prompt("\n")
+
+        if result == "__ESC__":
+            return
+
+
 def main():
     print()
     print("╔══════════════════════════════════════════════════════════════════╗")
@@ -431,6 +458,10 @@ def main():
                 show_weather(game.game)
                 continue
 
+            if command == "/events":
+                show_events(game.game)
+                continue
+
             if command == "/save":
                 try:
                     game.save()
@@ -466,6 +497,7 @@ def main():
                 print("  /trade      View nearby merchants")
                 print("  /map        Open map")
                 print("  /weather    View weather")
+                print("  /events     View world events")
                 print("  /save       Save game")
                 print("  /load       Load game")
                 print("  /quit       Exit game")

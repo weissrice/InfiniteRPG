@@ -10,6 +10,20 @@ class Weather:
 
 
 @dataclass
+class WorldEvent:
+    """A recorded world event."""
+    id: str
+    type: str  # npc_encounter, npc_dispute, merchant_restock, weather_incident
+    title: str
+    description: str
+    location: str
+    actors: List[str] = field(default_factory=list)
+    day: int = 0
+    time: str = "00:00"
+    resolved: bool = True
+
+
+@dataclass
 class Player:
     name: str = "Traveler"
     hp: int = 100
@@ -155,6 +169,12 @@ class GameState:
 
     # Locations the player has visited
     visited_locations: Set[str] = field(default_factory=set)
+
+    # World event history (bounded)
+    events: List[WorldEvent] = field(default_factory=list)
+
+    # Last processed event period (-1 = none processed yet)
+    last_event_period: int = -1
 
     def current_location(self) -> Location | None:
         """Return the location where the player currently is."""

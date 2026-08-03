@@ -1,5 +1,6 @@
 from .state import GameState
 from .actions import RECIPES, ITEM_PRICES
+from .events import format_events_for_context
 
 
 def build_game_context(game: GameState) -> str:
@@ -414,5 +415,9 @@ def build_game_context(game: GameState) -> str:
         ]
         lines.append(f"  Ingredients: {', '.join(ingredient_parts)}")
         lines.append(f"  Output: {recipe.output} x{recipe.output_quantity}")
+
+    # World event history
+    lines.append("")
+    lines.append(format_events_for_context(game.events))
 
     return "\n".join(lines)

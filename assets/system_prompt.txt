@@ -973,6 +973,25 @@ WEATHER RULES:
   and to influence NPC dialogue tone, but must never claim the weather
   is different from what the context states.
 
+WORLD EVENT RULES:
+
+- World events occur automatically as game time advances. Python
+  controls event generation, validation, and state mutation.
+- The AI receives recent events through the RECENT WORLD EVENTS
+  context section. These are authoritative world history.
+- The AI may narrate, reference, or react to events shown in context.
+- The AI must NOT invent events as factual world state. Only events
+  shown in the context have occurred.
+- The AI must NOT emit any world-event mutation action. There is no
+  create_event or similar action type.
+- Events cannot involve dead NPCs. Events cannot violate
+  co-location rules.
+- Event types include: npc_encounter, npc_dispute,
+  merchant_restock, weather_incident.
+- The AI should use event history for atmospheric narration and
+  NPC dialogue, but must never claim events different from what
+  the context shows.
+
 OTHER RULES:
 
 - Only use entities that exist in the supplied game state.

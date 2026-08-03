@@ -2,11 +2,11 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
-from .state import GameState, Player, World, Location, NPC, Quest, QuestObjective, Weather
+from .state import GameState, Player, World, Location, NPC, Quest, QuestObjective, Weather, WorldEvent
 
 
 SAVE_FILE = Path("rpg_save.json")
-SAVE_VERSION = 4
+SAVE_VERSION = 5
 
 
 def _load_weather(raw) -> Weather:
@@ -114,9 +114,29 @@ def load_game(path: Path = SAVE_FILE) -> GameState:
             offered_time=quest_data.get("offered_time", ""),
         )
 
+    # Reconstruct world events (backward-compatible: old saves have none)
+    events = []
+    events_data = data.get("events", [])
+    for ev_data in events_data:
+        events.append(WorldEvent(
+            id=ev_data.get("id", ""),
+            type=ev_data.get("type", ""),
+            title=ev_data.get("title", ""),
+            description=ev_data.get("description", ""),
+            location=ev_data.get("location", ""),
+            actors=ev_data.get("actors", []),
+            day=ev_data.get("day", 0),
+            time=ev_data.get("time", "00:00"),
+            resolved=ev_data.get("resolved", True),
+        ))
+
+    last_event_period = data.get("last_event_period", -1)
+
     return GameState(
         player=player,
         world=world,
         quests=quests,
         visited_locations=set(data.get("visited_locations", [])),
+        events=events,
+        last_event_period=last_event_period,
     )
