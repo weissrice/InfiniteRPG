@@ -6,19 +6,25 @@ from .state import GameState, Player, World, Location, NPC
 
 
 SAVE_FILE = Path("rpg_save.json")
+SAVE_VERSION = 1
 
 
 def save_game(game: GameState, path: Path = SAVE_FILE):
     """Save the complete game state to JSON."""
 
     data = asdict(game)
+    data["version"] = SAVE_VERSION
 
     with path.open("w", encoding="utf-8") as file:
         json.dump(data, file, indent=2, ensure_ascii=False)
 
 
 def load_game(path: Path = SAVE_FILE) -> GameState:
-    """Load a complete game state from JSON."""
+    """Load a complete game state from JSON.
+
+    Backward-compatible: saves without a version field are treated as
+    version 1 (the original format).
+    """
 
     if not path.exists():
         raise FileNotFoundError(
@@ -27,6 +33,10 @@ def load_game(path: Path = SAVE_FILE) -> GameState:
 
     with path.open("r", encoding="utf-8") as file:
         data = json.load(file)
+
+    # Version is optional for backward compatibility with pre-versioned
+    # save files.  Absent version is treated as 1.
+    _version = data.get("version", 1)
 
     player_data = data["player"]
     world_data = data["world"]

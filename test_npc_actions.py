@@ -55,12 +55,12 @@ results.append(check(
     in normalized,
 ))
 results.append(check(
-    "Direction rule: Player → NPC JSON example has no actor",
+    "Direction rule: Player -> NPC JSON example has no actor",
     '"type": "interact", "target": "old_man", "topic": "where were you earlier?"'
     in normalized,
 ))
 results.append(check(
-    "Direction rule: NPC → player JSON example has actor",
+    "Direction rule: NPC -> player JSON example has actor",
     '"type": "interact", "actor": "old_man", "target": "Traveler",'
     in normalized
     and '"asking the traveler to stay downstairs"}' in normalized,
@@ -398,7 +398,7 @@ for player_input in [
         in sent_system,
     ))
     results.append(check(
-        f"Player → NPC mapping carried for repro '{player_input}'",
+        f"Player -> NPC mapping carried for repro '{player_input}'",
         'Emit a PLAYER action with NO "actor" field'
         in sent_system
         and '"type": "interact", "target": "old_man",' in sent_system,

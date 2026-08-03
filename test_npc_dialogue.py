@@ -217,7 +217,7 @@ results.append(check(
     in " ".join(actor_system.split()),
 ))
 results.append(check(
-    "Player → NPC mapping carried for repro",
+    "Player -> NPC mapping carried for repro",
     'Emit a PLAYER action with NO "actor" field'
     in " ".join(actor_system.split()),
 ))
