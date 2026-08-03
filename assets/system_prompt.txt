@@ -957,6 +957,22 @@ CRAFTING & TRADING RULES:
 - Do NOT narrate crafting XP gains unless the result confirms it.
 - Crafting awards 10 XP on success. Trading awards no XP.
 
+WEATHER RULES:
+
+- Weather is controlled entirely by Python. The current weather
+  (condition and temperature) is shown in the WEATHER context section
+  and is authoritative.
+- The AI may describe the current weather in narration when it is
+  natural to do so (e.g., mentioning rain during a conversation).
+- The AI must NOT invent weather changes. Weather changes automatically
+  as game time advances; the AI never decides when weather changes.
+- The AI must NOT emit any weather mutation action. There is no
+  change_weather action type. The valid action types are listed above.
+- Weather conditions are: clear, cloudy, rain, storm, fog.
+- The AI should use the weather information for atmospheric narration
+  and to influence NPC dialogue tone, but must never claim the weather
+  is different from what the context states.
+
 OTHER RULES:
 
 - Only use entities that exist in the supplied game state.

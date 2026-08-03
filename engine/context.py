@@ -18,7 +18,7 @@ def build_game_context(game: GameState) -> str:
         f"Genre: {world.genre}",
         f"Day: {world.day}",
         f"Time: {world.time}",
-        f"Weather: {world.weather}",
+        f"Weather: {world.weather.condition.title()} ({world.weather.temperature}°C)",
         "",
         "=== PLAYER ===",
         f"Name: {player.name}",
@@ -54,6 +54,11 @@ def build_game_context(game: GameState) -> str:
         f"Current location: {player.location}",
         f"Visited locations: {', '.join(sorted(game.visited_locations)) if game.visited_locations else 'none'}",
         f"Connected locations: {', '.join(location.exits.values()) if location and location.exits else 'none'}",
+        "",
+        "=== WEATHER ===",
+        f"Condition: {world.weather.condition}",
+        f"Temperature: {world.weather.temperature}°C",
+        "(Weather is controlled by Python. The AI must not emit weather mutation actions.)",
     ])
 
     if location:

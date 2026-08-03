@@ -3,6 +3,13 @@ from typing import Dict, List, Optional, Set
 
 
 @dataclass
+class Weather:
+    """Persistent weather state. Deterministic from (seed, time)."""
+    condition: str = "clear"
+    temperature: int = 25
+
+
+@dataclass
 class Player:
     name: str = "Traveler"
     hp: int = 100
@@ -126,7 +133,8 @@ class World:
     genre: str = "Fantasy"
     time: str = "12:00"
     day: int = 1
-    weather: str = "Rain"
+    weather: Weather = field(default_factory=Weather)
+    seed: int = 0
     locations: Dict[str, Location] = field(default_factory=dict)
     npcs: Dict[str, NPC] = field(default_factory=dict)
     interactables: Dict[str, Interactable] = field(

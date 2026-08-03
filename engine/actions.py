@@ -1254,25 +1254,45 @@ def wait(
             "You cannot wait for that amount of time.",
         )
 
-    total_minutes = (
+    old_total = (
         game.world.day * 24 * 60
         + _time_to_minutes(game.world.time)
-        + minutes
     )
 
-    game.world.day = total_minutes // (24 * 60)
+    new_total = old_total + minutes
 
-    remaining = total_minutes % (24 * 60)
+    game.world.day = new_total // (24 * 60)
+
+    remaining = new_total % (24 * 60)
 
     hours = remaining // 60
     mins = remaining % 60
 
     game.world.time = f"{hours:02d}:{mins:02d}"
 
+    from .weather import (
+        compute_weather,
+        get_weather_change_message,
+        _weather_period,
+    )
+
+    old_condition = game.world.weather.condition
+
+    if _weather_period(old_total) != _weather_period(new_total):
+        new_weather = compute_weather(game.world.seed, new_total)
+        game.world.weather = new_weather
+
     routine_changes = advance_npc_routines(game)
     activity_changes = update_npc_activities(game)
 
-    data = {"minutes": minutes}
+    data: dict[str, Any] = {"minutes": minutes}
+
+    weather_change = get_weather_change_message(
+        old_condition, game.world.weather.condition,
+    )
+
+    if weather_change:
+        data["weather_change"] = weather_change
 
     if routine_changes:
         data["routine_changes"] = routine_changes

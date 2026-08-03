@@ -2,11 +2,27 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
-from .state import GameState, Player, World, Location, NPC, Quest, QuestObjective
+from .state import GameState, Player, World, Location, NPC, Quest, QuestObjective, Weather
 
 
 SAVE_FILE = Path("rpg_save.json")
-SAVE_VERSION = 3
+SAVE_VERSION = 4
+
+
+def _load_weather(raw) -> Weather:
+    """Convert raw weather data to a Weather instance.
+
+    Handles both legacy string values (e.g. "Rain") and the new dict
+    format produced by dataclasses.asdict().
+    """
+    if isinstance(raw, str):
+        return Weather(condition=raw.lower())
+    if isinstance(raw, dict):
+        return Weather(
+            condition=raw.get("condition", "clear"),
+            temperature=raw.get("temperature", 25),
+        )
+    return Weather()
 
 
 def save_game(game: GameState, path: Path = SAVE_FILE):
@@ -66,7 +82,8 @@ def load_game(path: Path = SAVE_FILE) -> GameState:
         genre=world_data["genre"],
         time=world_data["time"],
         day=world_data["day"],
-        weather=world_data["weather"],
+        weather=_load_weather(world_data.get("weather")),
+        seed=world_data.get("seed", 0),
         locations=locations,
         npcs=npcs,
     )

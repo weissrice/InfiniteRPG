@@ -48,6 +48,13 @@ def render_map(game: GameState) -> str:
     lines.append("                         WORLD MAP")
     lines.append("")
 
+    # Weather summary
+    w = world.weather
+    lines.append(
+        f"                         Weather: {w.condition.title()} | {w.temperature}°C"
+    )
+    lines.append("")
+
     # Build location info
     location_info = {}
     for loc_id, loc in world.locations.items():

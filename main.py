@@ -3,6 +3,7 @@ from prompt_toolkit.key_binding import KeyBindings
 
 from engine.game import GameEngine
 from engine.renderer import render_game
+from engine.weather import get_condition_description
 
 
 def create_session():
@@ -310,6 +311,38 @@ def show_map(game):
             return
 
 
+def show_weather(game):
+    """Display the weather screen."""
+
+    session = create_session()
+
+    while True:
+        print()
+        print("╔══════════════════════════════════════════════════════════════════╗")
+        print("║                          WEATHER                                 ║")
+        print("╠══════════════════════════════════════════════════════════════════╣")
+        print()
+
+        weather = game.world.weather
+        desc = get_condition_description(weather.condition)
+
+        print(f"  Condition:    {weather.condition.title()}")
+        print(f"  Description:  {desc}")
+        print(f"  Temperature:  {weather.temperature}°C")
+        print(f"  Time:         {game.world.time}")
+        print(f"  Day:          {game.world.day}")
+
+        print()
+        print("╠══════════════════════════════════════════════════════════════════╣")
+        print("║                     Press ESC to close                          ║")
+        print("╚══════════════════════════════════════════════════════════════════╝")
+
+        result = session.prompt("\n")
+
+        if result == "__ESC__":
+            return
+
+
 def main():
     print()
     print("╔══════════════════════════════════════════════════════════════════╗")
@@ -394,6 +427,10 @@ def main():
                 show_map(game.game)
                 continue
 
+            if command == "/weather":
+                show_weather(game.game)
+                continue
+
             if command == "/save":
                 try:
                     game.save()
@@ -428,6 +465,7 @@ def main():
                 print("  /craft      View crafting recipes")
                 print("  /trade      View nearby merchants")
                 print("  /map        Open map")
+                print("  /weather    View weather")
                 print("  /save       Save game")
                 print("  /load       Load game")
                 print("  /quit       Exit game")
