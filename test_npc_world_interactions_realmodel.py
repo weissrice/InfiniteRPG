@@ -246,8 +246,8 @@ results.append(check(
 print("\n=== 4. Real-model request carried the world-interaction grounding ===")
 sent_system = " ".join(ai.calls[1]["system"].split())
 results.append(check(
-    "NPC WORLD INTERACTION RULES carried in real request",
-    "NPC WORLD INTERACTION RULES:" in ai.calls[1]["system"]
+    "NPC ACTIONS carried in real request",
+    "NPC ACTIONS:" in ai.calls[1]["system"]
     and "cannot use interact_object" in sent_system,
 ))
 

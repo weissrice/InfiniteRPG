@@ -3,6 +3,27 @@ from .actions import RECIPES, ITEM_PRICES
 from .events import format_events_for_context
 
 
+def _direction_hint(dx: int, dy: int) -> str:
+    """Map coordinate delta to a cardinal direction hint for the AI."""
+    if dx > 0 and dy == 0:
+        return "east"
+    if dx < 0 and dy == 0:
+        return "west"
+    if dx == 0 and dy > 0:
+        return "south"
+    if dx == 0 and dy < 0:
+        return "north"
+    if dx > 0 and dy < 0:
+        return "northeast"
+    if dx < 0 and dy < 0:
+        return "northwest"
+    if dx > 0 and dy > 0:
+        return "southeast"
+    if dx < 0 and dy > 0:
+        return "southwest"
+    return ""
+
+
 def build_game_context(game: GameState) -> str:
     """
     Convert the current game state into a compact context
@@ -62,6 +83,13 @@ def build_game_context(game: GameState) -> str:
         "(Weather is controlled by Python. The AI must not emit weather mutation actions.)",
     ])
 
+    if game.last_narration:
+        lines.extend([
+            "",
+            "=== PREVIOUS NARRATION ===",
+            f"{game.last_narration}",
+        ])
+
     if location:
         lines.extend([
             "",
@@ -77,12 +105,22 @@ def build_game_context(game: GameState) -> str:
                 destination_location = world.locations.get(destination)
 
                 if destination_location:
-                    lines.append(
-                        f"- {direction} → {destination_location.name}"
-                    )
+                    dx = destination_location.map_x - location.map_x
+                    dy = destination_location.map_y - location.map_y
+                    hint = _direction_hint(dx, dy)
+                    if hint:
+                        lines.append(
+                            f"- {direction} ({hint}) -> "
+                            f"{destination_location.name}"
+                        )
+                    else:
+                        lines.append(
+                            f"- {direction} -> "
+                            f"{destination_location.name}"
+                        )
                 else:
                     lines.append(
-                        f"- {direction} → Unknown"
+                        f"- {direction} -> Unknown"
                     )
 
         if location.items:
@@ -419,5 +457,42 @@ def build_game_context(game: GameState) -> str:
     # World event history
     lines.append("")
     lines.append(format_events_for_context(game.events))
+
+    # World generation info
+    lines.extend([
+        "",
+        "=== WORLD GENERATION ===",
+        "You can expand the world by generating new content.",
+        "When the player explores beyond known territory, or when the",
+        "narrative calls for something new, emit a generate_world action:",
+        "",
+        '{"type": "generate_world", "reference": "current_location_id", '
+        '"direction": "east", "hint": "a small trading post", '
+        '"travel_destination": true, '
+        '"location": {"name": "...", "description": "...", '
+        '"visual_type": "village", "is_interior": false}, '
+        '"npcs": [...], "items": [...], "interactables": [...], '
+        '"connections": [{"label": "road", "one_way": false}]}',
+        "",
+        "Set travel_destination=true when the player is traveling toward",
+        "the generated location (e.g. going south, exploring deeper).",
+        "Set travel_destination=false when describing distant places",
+        "or NPC-mentioned locations the player is NOT moving to.",
+        "The engine handles IDs, coordinates, connections, and persistence.",
+        "Do NOT generate content that already exists.",
+        "Generate content that makes geographic sense.",
+        "NPCs should have personalities, knowledge, and goals.",
+        "Items should be appropriate to the location.",
+    ])
+
+    # Nearby locations with coordinates
+    if game.world.locations:
+        lines.extend(["", "=== KNOWN LOCATIONS ==="])
+        for loc_id, loc in game.world.locations.items():
+            exits_str = ", ".join(loc.exits.keys()) if loc.exits else "none"
+            lines.append(
+                f"- {loc_id} ({loc.name}) at ({loc.map_x}, {loc.map_y}) "
+                f"exits: {exits_str}"
+            )
 
     return "\n".join(lines)

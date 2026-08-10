@@ -46,10 +46,10 @@ results = []
 system = SYSTEM_PROMPT
 normalized = " ".join(system.split())
 
-print("=== 0. Prompt - NPC GOAL TRANSFER RULES ===")
+print("=== 0. Prompt - NPC goal transfer rules ===")
 results.append(check(
-    "NPC GOAL TRANSFER RULES section present",
-    "NPC GOAL TRANSFER RULES:" in system,
+    "RULES section present",
+    "RULES:" in system,
 ))
 results.append(check(
     "AI may propose candidate goal",

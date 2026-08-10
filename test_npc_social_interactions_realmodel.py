@@ -288,8 +288,8 @@ results.append(check(
 print("\n=== 4. Real-model request carried the social grounding ===")
 sent_system = " ".join(ai.calls[1]["system"].split())
 results.append(check(
-    "NPC SOCIAL INTERACTION RULES carried in the real request",
-    "NPC SOCIAL INTERACTION RULES:" in ai.calls[1]["system"]
+    "NPC INTERACTION DIRECTIONS carried in the real request",
+    "NPC INTERACTION DIRECTIONS:" in ai.calls[1]["system"]
     and "must never target itself" in sent_system,
 ))
 results.append(check(
@@ -301,8 +301,8 @@ results.append(check(
     "not autonomous" in sent_system.lower(),
 ))
 results.append(check(
-    "NPC RELATIONSHIP EVOLUTION RULES carried in the real request",
-    "NPC RELATIONSHIP EVOLUTION RULES:" in ai.calls[1]["system"],
+    "RULES section carried in the real request",
+    "RULES:" in ai.calls[1]["system"],
 ))
 
 print("\n--- Real-model raw responses (small batch) ---")

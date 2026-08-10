@@ -1,4 +1,5 @@
 ﻿from .state import GameState, Location, Interactable, NPC
+from .local_map import generate_local_map
 
 
 def create_new_game() -> GameState:
@@ -326,6 +327,25 @@ def create_new_game() -> GameState:
 
     # Mark starting location as visited
     game.visited_locations.add(house.id)
+
+    # Generate local maps for all locations
+    for loc in game.world.locations.values():
+        game.local_maps[loc.id] = generate_local_map(loc)
+
+    # Place NPCs and interactables onto their location's local maps
+    for loc in game.world.locations.values():
+        lm = game.local_maps.get(loc.id)
+        if lm is not None:
+            from .local_map import _place_npcs_and_interactables
+            _place_npcs_and_interactables(
+                lm, loc, game.world.npcs, game.world.interactables,
+            )
+
+    # Initialize player local position from the starting location's spawn
+    starting_map = game.local_maps.get(game.player.location)
+    if starting_map is not None:
+        game.player.local_x = starting_map.spawn[0]
+        game.player.local_y = starting_map.spawn[1]
 
     return game
 

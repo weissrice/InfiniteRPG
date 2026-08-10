@@ -35,10 +35,10 @@ normalized = " ".join(system.split())
 # 0. System prompt
 # ------------------------------------------------------------------
 
-print("=== 0. System prompt contains QUEST RULES ===")
+print("=== 0. System prompt contains QUESTS rules ===")
 results.append(check(
-    "QUEST RULES section present",
-    "QUEST RULES:" in system,
+    "QUESTS section present",
+    "QUESTS:" in system,
 ))
 results.append(check(
     "offer_quest in valid types",
@@ -875,8 +875,8 @@ results.append(check(
     isinstance(SYSTEM_PROMPT, str) and len(SYSTEM_PROMPT) > 0,
 ))
 results.append(check(
-    "SYSTEM_PROMPT contains QUEST RULES",
-    "QUEST RULES:" in SYSTEM_PROMPT,
+    "SYSTEM_PROMPT contains QUESTS",
+    "QUESTS:" in SYSTEM_PROMPT,
 ))
 
 # ------------------------------------------------------------------

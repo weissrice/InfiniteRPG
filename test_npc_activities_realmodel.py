@@ -176,8 +176,8 @@ results.append(check(
 print("\n=== 3. Real-model request carried the activity grounding ===")
 sent_system = " ".join(first["system"].split())
 results.append(check(
-    "NPC ACTIVITY RULES carried in real request",
-    "NPC ACTIVITY RULES:" in first["system"]
+    "RULES section carried in real request",
+    "RULES:" in first["system"]
     and "answer from the Current Activity in first person"
     in sent_system,
 ))

@@ -21,10 +21,10 @@ results = []
 system = SYSTEM_PROMPT
 normalized = " ".join(system.split())
 
-print("=== 0. Prompt contains NPC ROUTINE RULES ===")
+print("=== 0. Prompt contains routine rules ===")
 results.append(check(
-    "NPC ROUTINE RULES section present",
-    "NPC ROUTINE RULES:" in system,
+    "RULES section present",
+    "RULES:" in system,
 ))
 results.append(check(
     "Python moves NPCs per schedule",

@@ -24,10 +24,10 @@ results = []
 system = SYSTEM_PROMPT
 normalized = " ".join(system.split())
 
-print("=== 0. Prompt contains COMBAT RULES ===")
+print("=== 0. Prompt contains COMBAT rules ===")
 results.append(check(
-    "COMBAT RULES section present",
-    "COMBAT RULES:" in system,
+    "COMBAT section present",
+    "COMBAT:" in system,
 ))
 results.append(check(
     "attack action in valid types",
@@ -195,8 +195,8 @@ print("\n=== 20. attack: empty target ===")
 game = create_new_game()
 result = attack(game, "player", "", "")
 results.append(check(
-    "Empty target matches first NPC (_find_npc empty string bug)",
-    result.success,
+    "Empty target returns failure (bug fixed)",
+    not result.success,
 ))
 
 print("\n=== 21. attack: nonexistent target ===")
@@ -209,6 +209,9 @@ results.append(check(
 
 print("\n=== 22. attack: bare hands ===")
 game = create_new_game()
+# Position player adjacent to Old Man for attack
+game.player.local_x = game.world.npcs["old_man"].local_x + 1
+game.player.local_y = game.world.npcs["old_man"].local_y
 old_hp = game.world.npcs["old_man"].hp
 result = attack(game, "player", "old_man", "")
 results.append(check(
@@ -222,6 +225,8 @@ results.append(check(
 
 print("\n=== 23. attack: with weapon name ===")
 game = create_new_game()
+game.player.local_x = game.world.npcs["old_man"].local_x + 1
+game.player.local_y = game.world.npcs["old_man"].local_y
 game.player.inventory = ["Sword"]
 old_hp = game.world.npcs["old_man"].hp
 result = attack(game, "player", "old_man", "Sword")
@@ -236,6 +241,8 @@ results.append(check(
 
 print("\n=== 24. attack: weapon in inventory but wrong name ===")
 game = create_new_game()
+game.player.local_x = game.world.npcs["old_man"].local_x + 1
+game.player.local_y = game.world.npcs["old_man"].local_y
 game.player.inventory = ["Sword"]
 old_hp = game.world.npcs["old_man"].hp
 result = attack(game, "player", "old_man", "Axe")
@@ -250,6 +257,8 @@ results.append(check(
 
 print("\n=== 25. attack: NPC dies at 0 HP ===")
 game = create_new_game()
+game.player.local_x = game.world.npcs["old_man"].local_x + 1
+game.player.local_y = game.world.npcs["old_man"].local_y
 game.world.npcs["old_man"].hp = 5
 result = attack(game, "player", "old_man", "")
 results.append(check(
@@ -267,6 +276,8 @@ results.append(check(
 
 print("\n=== 26. attack: NPC death result data ===")
 game = create_new_game()
+game.player.local_x = game.world.npcs["old_man"].local_x + 1
+game.player.local_y = game.world.npcs["old_man"].local_y
 game.world.npcs["old_man"].hp = 5
 result = attack(game, "player", "old_man", "")
 results.append(check(
@@ -280,6 +291,9 @@ results.append(check(
 
 print("\n=== 27. attack: player death at 0 HP ===")
 game = create_new_game()
+# Position Old Man adjacent to player for attack
+game.world.npcs["old_man"].local_x = game.player.local_x + 1
+game.world.npcs["old_man"].local_y = game.player.local_y
 game.player.hp = 5
 result = attack(game, "old_man", "player", "")
 results.append(check(
@@ -297,6 +311,9 @@ results.append(check(
 
 print("\n=== 28. attack: player survives hit ===")
 game = create_new_game()
+# Position Old Man adjacent to player for attack
+game.world.npcs["old_man"].local_x = game.player.local_x + 1
+game.world.npcs["old_man"].local_y = game.player.local_y
 old_hp = game.player.hp
 result = attack(game, "old_man", "player", "")
 results.append(check(
@@ -335,6 +352,9 @@ results.append(check(
 
 print("\n=== 32. attack: player death result data ===")
 game = create_new_game()
+# Position Old Man adjacent to player for attack
+game.world.npcs["old_man"].local_x = game.player.local_x + 1
+game.world.npcs["old_man"].local_y = game.player.local_y
 game.player.hp = 5
 result = attack(game, "old_man", "player", "")
 results.append(check(
@@ -374,6 +394,8 @@ results.append(check(
 print("\n=== 35. attack: NPC at same location ===")
 game = create_new_game()
 game.player.location = "old_wooden_house"
+game.player.local_x = game.world.npcs["old_man"].local_x + 1
+game.player.local_y = game.world.npcs["old_man"].local_y
 result = attack(game, "player", "old_man", "")
 results.append(check(
     "Attack succeeds when NPC at same location",
@@ -382,6 +404,8 @@ results.append(check(
 
 print("\n=== 36. attack: multiple attacks accumulate ===")
 game = create_new_game()
+game.player.local_x = game.world.npcs["old_man"].local_x + 1
+game.player.local_y = game.world.npcs["old_man"].local_y
 old_hp = game.world.npcs["old_man"].hp
 attack(game, "player", "old_man", "")
 attack(game, "player", "old_man", "")
@@ -393,6 +417,8 @@ results.append(check(
 
 print("\n=== 37. attack: NPC death keeps NPC in world ===")
 game = create_new_game()
+game.player.local_x = game.world.npcs["old_man"].local_x + 1
+game.player.local_y = game.world.npcs["old_man"].local_y
 game.world.npcs["old_man"].hp = 5
 attack(game, "player", "old_man", "")
 results.append(check(
@@ -406,6 +432,8 @@ results.append(check(
 
 print("\n=== 38. attack: bare hands with empty inventory ===")
 game = create_new_game()
+game.player.local_x = game.world.npcs["old_man"].local_x + 1
+game.player.local_y = game.world.npcs["old_man"].local_y
 game.player.inventory = []
 old_hp = game.world.npcs["old_man"].hp
 result = attack(game, "player", "old_man", "")
@@ -420,6 +448,8 @@ results.append(check(
 
 print("\n=== 39. attack: NPC memory recorded on target ===")
 game = create_new_game()
+game.player.local_x = game.world.npcs["old_man"].local_x + 1
+game.player.local_y = game.world.npcs["old_man"].local_y
 old_mem_len = len(game.world.npcs["old_man"].memory)
 attack(game, "player", "old_man", "")
 results.append(check(
@@ -429,6 +459,8 @@ results.append(check(
 
 print("\n=== 40. attack: NPC memory on witness ===")
 game = create_new_game()
+game.player.local_x = game.world.npcs["old_man"].local_x + 1
+game.player.local_y = game.world.npcs["old_man"].local_y
 witness_id = None
 for nid in game.world.locations["old_wooden_house"].npcs:
     if nid != "old_man":

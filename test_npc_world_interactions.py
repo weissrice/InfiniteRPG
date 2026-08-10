@@ -21,10 +21,10 @@ results = []
 system = SYSTEM_PROMPT
 normalized = " ".join(system.split())
 
-print("=== 0. Prompt contains NPC WORLD INTERACTION RULES ===")
+print("=== 0. Prompt contains NPC world interaction rules ===")
 results.append(check(
-    "NPC WORLD INTERACTION RULES section present",
-    "NPC WORLD INTERACTION RULES:" in system,
+    "NPC ACTIONS section present",
+    "NPC ACTIONS:" in system,
 ))
 results.append(check(
     "AI proposes, Python validates and executes",
@@ -120,8 +120,8 @@ results.append(check(
     "Used by: Old Man" in captured["prompt"],
 ))
 results.append(check(
-    "NPC WORLD INTERACTION RULES carried in system prompt for repro",
-    "NPC WORLD INTERACTION RULES:" in captured["system"]
+    "NPC ACTIONS carried in system prompt for repro",
+    "NPC ACTIONS:" in captured["system"]
     and "cannot use interact_object" in " ".join(captured["system"].split()),
 ))
 

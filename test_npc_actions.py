@@ -16,10 +16,10 @@ results = []
 system = SYSTEM_PROMPT
 normalized = " ".join(system.split())
 
-print("=== 0. Prompt contains NPC ACTION RULES ===")
+print("=== 0. Prompt contains NPC ACTIONS rules ===")
 results.append(check(
-    "NPC ACTION RULES section present",
-    "NPC ACTION RULES:" in system,
+    "NPC ACTIONS section present",
+    "NPC ACTIONS:" in system,
 ))
 results.append(check(
     "NPC actions are optional proposals",

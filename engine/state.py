@@ -45,6 +45,15 @@ class Player:
     # Trading
     money: int = 0
 
+    # Local position within the current location's local map
+    local_x: int = 0
+    local_y: int = 0
+
+    # Saved positions when leaving an area: location_id -> [local_x, local_y]
+    _area_positions: Dict[str, List[int]] = field(
+        default_factory=dict
+    )
+
 
 @dataclass
 class QuestObjective:
@@ -83,6 +92,45 @@ class Recipe:
 
 
 @dataclass
+class LocalObject:
+    """A static or interactive object within a location's local map.
+
+    x/y is the top-left tile. width/height describe the footprint
+    (default 1x1 for backward compatibility).
+    """
+    id: str
+    name: str
+    x: int
+    y: int
+    tile: str
+    blocking: bool = False
+    interactable_id: Optional[str] = None
+    width: int = 1
+    height: int = 1
+
+
+@dataclass
+class ExitPoint:
+    """Where a world-graph exit is located on a local map grid."""
+    x: int
+    y: int
+    target_location_id: str
+    entry_name: str
+
+
+@dataclass
+class LocalMap:
+    """A walkable tile grid for a single location."""
+    width: int
+    height: int
+    terrain: List[List[str]] = field(default_factory=list)
+    collision: List[List[bool]] = field(default_factory=list)
+    objects: List[LocalObject] = field(default_factory=list)
+    exits: Dict[str, ExitPoint] = field(default_factory=dict)
+    spawn: List[int] = field(default_factory=lambda: [0, 0])
+
+
+@dataclass
 class NPC:
     id: str
     name: str
@@ -108,6 +156,17 @@ class NPC:
     inventory: List[str] = field(default_factory=list)
     money: int = 0
 
+    # Local position within the location's local map (-1 = not placed)
+    local_x: int = -1
+    local_y: int = -1
+
+    # NPC local movement (Phase 11)
+    movement_mode: str = "stationary"  # stationary, wander, guard
+    guard_x: int = -1
+    guard_y: int = -1
+    move_cooldown: int = 0
+    move_interval: int = 3
+
 
 @dataclass
 class Interactable:
@@ -120,6 +179,10 @@ class Interactable:
     used: bool = False
     memory: List[str] = field(default_factory=list)
     unlock_items: List[str] = field(default_factory=list)
+
+    # Local position within the location's local map (-1 = not placed)
+    local_x: int = -1
+    local_y: int = -1
 
 
 @dataclass
@@ -175,6 +238,9 @@ class GameState:
 
     # Last processed event period (-1 = none processed yet)
     last_event_period: int = -1
+
+    # Local maps for locations (location_id -> LocalMap)
+    local_maps: Dict[str, LocalMap] = field(default_factory=dict)
 
     def current_location(self) -> Location | None:
         """Return the location where the player currently is."""

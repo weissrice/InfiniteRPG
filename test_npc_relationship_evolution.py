@@ -40,10 +40,10 @@ results = []
 system = SYSTEM_PROMPT
 normalized = " ".join(system.split())
 
-print("=== 0. Prompt - NPC RELATIONSHIP EVOLUTION RULES ===")
+print("=== 0. Prompt - NPC relationship evolution rules ===")
 results.append(check(
-    "NPC RELATIONSHIP EVOLUTION RULES section present",
-    "NPC RELATIONSHIP EVOLUTION RULES:" in system,
+    "RULES section present",
+    "RULES:" in system,
 ))
 results.append(check(
     "AI never chooses, emits, or predicts scores",

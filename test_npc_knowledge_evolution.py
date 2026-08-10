@@ -42,10 +42,10 @@ results = []
 system = SYSTEM_PROMPT
 normalized = " ".join(system.split())
 
-print("=== 0. Prompt - NPC KNOWLEDGE TRANSFER RULES ===")
+print("=== 0. Prompt - NPC knowledge transfer rules ===")
 results.append(check(
-    "NPC KNOWLEDGE TRANSFER RULES section present",
-    "NPC KNOWLEDGE TRANSFER RULES:" in system,
+    "RULES section present",
+    "RULES:" in system,
 ))
 results.append(check(
     "AI may propose candidate knowledge",

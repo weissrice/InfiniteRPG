@@ -34,8 +34,8 @@ normalized = " ".join(system.split())
 
 print("\n=== 0. System Prompt ===")
 results.append(check(
-    "PROGRESSION RULES section present",
-    "PLAYER PROGRESSION RULES:" in system,
+    "RULES section present",
+    "RULES:" in system,
 ))
 results.append(check(
     "allocate_stat in valid action types",

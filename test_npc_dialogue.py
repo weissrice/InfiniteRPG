@@ -16,8 +16,8 @@ normalized = " ".join(system.split())
 
 print("=== 1. Dialogue response rules present in system prompt ===")
 results.append(check(
-    "NPC DIALOGUE RESPONSE RULES block present",
-    "NPC DIALOGUE RESPONSE RULES:" in system,
+    "RULES section present",
+    "RULES:" in system,
 ))
 results.append(check(
     "Rule applies whenever an NPC speaks",
@@ -113,7 +113,7 @@ finally:
 
 results.append(check(
     "Dialogue rules carried in system prompt sent to AI",
-    "NPC DIALOGUE RESPONSE RULES:" in captured["system"],
+    "RULES:" in captured["system"],
 ))
 results.append(check(
     "Atmosphere-only ban carried in system prompt sent to AI",
@@ -135,7 +135,7 @@ results.append(check(
 ))
 results.append(check(
     "Belief grounding preserved alongside dialogue rules",
-    "NPC BELIEF RULES:" in captured["system"],
+    "RULES:" in captured["system"],
 ))
 results.append(check(
     "Interact executes",

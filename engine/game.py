@@ -22,6 +22,8 @@ from .actions import (
     record_conversation_response,
     sell_item,
     take_item,
+    tick_npc_autonomy,
+    update_npc_local_movement,
     use_item,
     wait,
 )
@@ -29,6 +31,7 @@ from .ai import AIClient
 from .context import build_game_context
 from .state import GameState
 from .world import create_new_game
+from .world_gen import generate_world_content
 
 
 
@@ -43,12 +46,40 @@ def _load_system_prompt() -> str:
 SYSTEM_PROMPT = _load_system_prompt()
 
 
+class SimulationClock:
+    """Tracks elapsed simulation ticks.
+
+    This is a minimal, deterministic clock that advances when the player
+    performs time-consuming actions. It contains no scheduling, LOD, or
+    event functionality.
+    """
+
+    def __init__(self):
+        self._ticks: int = 0
+
+    @property
+    def ticks(self) -> int:
+        """Return the total elapsed simulation ticks."""
+        return self._ticks
+
+    def advance(self, ticks: int = 1) -> None:
+        """Advance the clock by the given number of ticks.
+
+        Args:
+            ticks: Number of ticks to advance. Must be positive.
+        """
+        if ticks < 1:
+            return
+        self._ticks += ticks
+
+
 class GameEngine:
     """Main coordinator for the Infinite RPG."""
 
     def __init__(self):
         self.game: GameState = create_new_game()
         self.ai = AIClient()
+        self.clock = SimulationClock()
 
     def save(self):
         """Save the current game."""
@@ -61,6 +92,35 @@ class GameEngine:
     def close(self):
         """Close the AI client."""
         self.ai.close()
+
+    def tick_npc_movement(self):
+        """Tick NPC local movement for the current location.
+
+        Should be called once after each successful player local
+        movement action.
+        """
+        update_npc_local_movement(self.game)
+
+    def step_turn(self, ticks: int = 1) -> list[str]:
+        """Advance the simulation by one turn.
+
+        Advances the clock first, then ticks NPC local movement,
+        then processes autonomous NPC actions.
+
+        This is the unified entry point for simulation time progression.
+
+        Args:
+            ticks: Number of ticks to advance. Defaults to 1. If 0 or negative,
+                no simulation time passes.
+
+        Returns:
+            List of narration strings from autonomous NPC actions.
+        """
+        if ticks < 1:
+            return []
+        self.clock.advance(ticks)
+        self.tick_npc_movement()
+        return tick_npc_autonomy(self.game)
 
     def process_input(self, player_input: str) -> dict[str, Any]:
         """Process one player command."""
@@ -76,24 +136,19 @@ PLAYER ACTION:
 
 {player_input}
 
-Interpret the player's action and return the required JSON.
+You are the Game Master. Narrate what happens based on the game state and the player's action.
+Return the JSON with your narration and any mechanical actions.
 """
 
         response = self.ai.ask(
             prompt=prompt,
             system=SYSTEM_PROMPT,
-            max_tokens=2048,
-            temperature=0.5,
+            max_tokens=4096,
+            temperature=0.6,
             json_mode=True,
         )
 
-        
-
-
-
         result = self._parse_response(response)
-
-
 
         if result is None:
             return {
@@ -106,6 +161,7 @@ Interpret the player's action and return the required JSON.
             }
 
         applied_actions = []
+        player_moved_locally = False
 
         for action in result.get("actions", []):
             action_result = self._execute_action(action)
@@ -119,9 +175,13 @@ Interpret the player's action and return the required JSON.
                 }
             )
 
-        
-        print()
-        
+            if action_result.success and action.get("type") == "move":
+                player_moved_locally = True
+
+        # Advance simulation turn once after a successful player move
+        if player_moved_locally:
+            self.step_turn()
+
         narration = result.get(
             "narration",
             "Nothing happens.",
@@ -299,6 +359,70 @@ Interpret the player's action and return the required JSON.
                 action.get("item", ""),
                 action.get("quantity", 1),
             )
+
+        if action_type == "generate_world":
+            travel_dest = action.get("travel_destination", False)
+            result = generate_world_content(
+                game=self.game,
+                ai=self.ai,
+                reference_location_id=action.get(
+                    "reference", self.game.player.location,
+                ),
+                direction=action.get("direction", "east"),
+                context_hint=action.get("hint", ""),
+            )
+
+            if result.success and result.location:
+                # Create a LocalMap for the generated location
+                from engine.local_map import generate_local_map, validate_local_map, _place_npcs_and_interactables
+                lm = generate_local_map(result.location)
+                # Place NPCs and interactables before validation
+                _place_npcs_and_interactables(
+                    lm, result.location,
+                    self.game.world.npcs, self.game.world.interactables,
+                )
+                if validate_local_map(lm, list(self.game.world.npcs.values()), list(self.game.world.interactables.values()), location_id=result.location.id):
+                    self.game.local_maps[result.location.id] = lm
+                else:
+                    # Fallback: create a minimal valid map
+                    lm = generate_local_map(result.location)
+                    self.game.local_maps[result.location.id] = lm
+
+                # Also ensure the reference location has a LocalMap
+                if result.location.id not in self.game.local_maps:
+                    ref_loc = self.game.world.locations.get(
+                        action.get("reference", self.game.player.location)
+                    )
+                    if ref_loc and ref_loc.id not in self.game.local_maps:
+                        ref_lm = generate_local_map(ref_loc)
+                        self.game.local_maps[ref_loc.id] = ref_lm
+
+            if travel_dest and result.success and result.location:
+                self.game.player.location = result.location.id
+                self.game.visited_locations.add(result.location.id)
+                # Set player spawn position in the new location
+                new_lm = self.game.local_maps.get(result.location.id)
+                if new_lm:
+                    self.game.player.local_x = new_lm.spawn[0]
+                    self.game.player.local_y = new_lm.spawn[1]
+
+            return type(
+                "GenResult",
+                (),
+                {
+                    "success": result.success,
+                    "message": (
+                        f"You discover {result.location.name}."
+                        if result.location
+                        else result.error
+                    ),
+                    "data": {
+                        "location": result.location.id if result.location else None,
+                        "generated": result.success,
+                        "moved": travel_dest and result.success,
+                    },
+                },
+            )()
 
         return type(
             "UnknownActionResult",

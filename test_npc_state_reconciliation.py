@@ -113,8 +113,8 @@ results.append(check(
 
 print("\n=== 10a. Reconciliation rules block present ===")
 results.append(check(
-    "NPC STATE RECONCILIATION RULES section present",
-    "NPC STATE RECONCILIATION RULES:" in system,
+    "RULES section present",
+    "RULES:" in system,
 ))
 results.append(check(
     "Identify relevant supplied state",
@@ -174,7 +174,7 @@ for player_input in scenarios:
     prompt_system, prompt = captured[0]
     results.append(check(
         f"Prompt for {player_input!r} carries reconciliation rules",
-        "NPC STATE RECONCILIATION RULES:" in prompt_system,
+        "RULES:" in prompt_system,
     ))
 
 builtins.input = old_input

@@ -1,10 +1,31 @@
-﻿import re
+﻿import random
+import re
 from typing import Any, Dict
 
 from .state import GameState, Interactable, NPC, Quest, QuestObjective
 from .generation import generate_location
 from .routines import advance_npc_routines, update_npc_activities
 from .world import add_generated_location
+
+
+# ---------------------------------------------------------------------------
+# Shared utilities
+# ---------------------------------------------------------------------------
+
+def _chebyshev(ax: int, ay: int, bx: int, by: int) -> int:
+    """Chebyshev (chessboard) distance between two tile positions."""
+    return max(abs(ax - bx), abs(ay - by))
+
+
+def is_in_interaction_range(game: GameState, target_x: int, target_y: int) -> bool:
+    """Return True if target is within interaction range of the player."""
+    px, py = game.player.local_x, game.player.local_y
+    if px < 0 or py < 0 or target_x < 0 or target_y < 0:
+        return True  # fallback
+    return _chebyshev(px, py, target_x, target_y) <= INTERACT_RANGE
+
+
+INTERACT_RANGE = 1  # Chebyshev distance for interaction
 
 
 class ActionResult:
@@ -1939,29 +1960,56 @@ def attack(
         )
 
         if not target_is_player:
-            return ActionResult(
-                False,
-                "NPCs can only attack the player in V1.",
-                {"attacker": attacker, "target": target,
-                 "reason": "invalid_target"},
-            )
-
-        if game.player.hp <= 0:
-            return ActionResult(
-                False,
-                "The player is already dead.",
-                {"attacker": attacker, "target": target,
-                 "reason": "target_dead"},
-            )
+            # Try to find target as an NPC
+            target_npc = _find_npc(game, target)
+            if target_npc is None:
+                return ActionResult(
+                    False,
+                    f"{attacker_npc.name} cannot find target '{target}' here.",
+                    {"attacker": attacker, "target": target,
+                     "reason": "target_not_found"},
+                )
+            if target_npc.hp <= 0:
+                return ActionResult(
+                    False,
+                    f"{target_npc.name} is already dead.",
+                    {"attacker": attacker, "target": target,
+                     "reason": "target_dead"},
+                )
+            if target_npc.id == attacker_npc.id:
+                return ActionResult(
+                    False,
+                    f"{attacker_npc.name} cannot attack itself.",
+                    {"attacker": attacker, "target": target,
+                     "reason": "self_target"},
+                )
+            if _chebyshev(attacker_npc.local_x, attacker_npc.local_y,
+                          target_npc.local_x, target_npc.local_y) > INTERACT_RANGE:
+                return ActionResult(
+                    False,
+                    f"{target_npc.name} is too far away. Move closer to attack.",
+                    {"attacker": attacker, "target": target,
+                     "reason": "too_far"},
+                )
+        else:
+            if game.player.hp <= 0:
+                return ActionResult(
+                    False,
+                    "The player is already dead.",
+                    {"attacker": attacker, "target": target,
+                     "reason": "target_dead"},
+                )
 
     # ----------------------------------------------------------
     # Self-target check
     # ----------------------------------------------------------
 
     if is_player_attack and target_npc is not None:
-        pass
+        pass  # Player attacking NPC (already validated)
     elif not is_player_attack and target_is_player:
-        pass
+        pass  # NPC attacking player
+    elif not is_player_attack and target_npc is not None:
+        pass  # NPC attacking NPC (already validated above)
     else:
         return ActionResult(
             False,
@@ -1995,7 +2043,7 @@ def attack(
     # ----------------------------------------------------------
 
     if is_player_attack and target_npc is not None:
-        old_hp = target_npc.hp
+        # Player attacks NPC
         new_hp, is_dead = _apply_damage(
             target_npc.hp, target_npc.max_hp, damage,
         )
@@ -2025,6 +2073,54 @@ def attack(
                         f"The player attacked {target_npc.name}.",
                     )
 
+        # Process witness reactions for NPCs physically present
+        witness_reactions = process_witness_reactions(
+            game, attacker, target_npc.id, is_dead,
+            target_npc.local_x, target_npc.local_y,
+        )
+    elif not is_player_attack and target_npc is not None:
+        # NPC attacks NPC
+        new_hp, is_dead = _apply_damage(
+            target_npc.hp, target_npc.max_hp, damage,
+        )
+        target_npc.hp = new_hp
+
+        _record_npc_memory(
+            target_npc,
+            f"{attacker_npc.name} attacked {target_npc.name}"
+            + (f" with {used_weapon}." if used_weapon else "."),
+        )
+
+        for npc_id in location.npcs:
+            witness = game.world.npcs.get(npc_id)
+            if (
+                witness
+                and witness.id != target_npc.id
+                and witness.id != attacker_npc.id
+                and witness.hp > 0
+            ):
+                if is_dead:
+                    _record_npc_memory(
+                        witness,
+                        f"{attacker_npc.name} killed {target_npc.name}.",
+                    )
+                else:
+                    _record_npc_memory(
+                        witness,
+                        f"{attacker_npc.name} attacked {target_npc.name}.",
+                    )
+
+        # Process witness reactions for NPCs physically present
+        attacker_name = attacker_npc.name
+        witness_reactions = process_witness_reactions(
+            game, attacker_name, target_npc.id, is_dead,
+            target_npc.local_x, target_npc.local_y,
+        )
+
+    # Handle death resolution only if we have a target_npc (not player target)
+    if target_npc is not None:
+        quest_events = []
+        xp_result = None
         if is_dead:
             if target_npc.id in location.npcs:
                 location.npcs.remove(target_npc.id)
@@ -2039,42 +2135,49 @@ def attack(
                 if quest.giver == target_npc.id:
                     _fail_quest(game, quest)
 
-            # Progression: XP for kill
-            xp_result = _award_xp(game, XP_PER_NPC_KILL, "npc_kill")
-
-        else:
-            quest_events = []
-            xp_result = None
+            # Progression: XP for kill (only if player is the attacker)
+            if is_player_attack:
+                xp_result = _award_xp(game, XP_PER_NPC_KILL, "npc_kill")
 
         result_xp = xp_result.data if is_dead and xp_result else {}
 
-        return ActionResult(
-            True,
-            (
+        # Build narration including witness reactions
+        if is_player_attack:
+            narration = (
                 f"You attack {target_npc.name}"
                 + (f" with {used_weapon}" if used_weapon else "")
                 + f" for {damage} damage."
-                + (
-                    f" {target_npc.name} is dead."
-                    if is_dead
-                    else ""
-                )
-            ),
-            {
-                "attacker": "player",
-                "target": target_npc.id,
-                "weapon": used_weapon,
-                "damage": damage,
-                "target_hp": target_npc.hp,
-                "target_max_hp": target_npc.max_hp,
-                "target_dead": is_dead,
-                "quest_events": quest_events if quest_events else [],
-                "xp": result_xp,
-            },
-        )
+                + (f" {target_npc.name} is dead." if is_dead else "")
+            )
+        else:
+            narration = (
+                f"{attacker_npc.name} attacks {target_npc.name}"
+                + (f" with {used_weapon}" if used_weapon else "")
+                + f" for {damage} damage."
+                + (f" {target_npc.name} is dead." if is_dead else "")
+            )
+        if witness_reactions:
+            narration += " " + " ".join(witness_reactions)
 
-    # NPC attacks player
-    if attacker_npc is not None:
+        return ActionResult(
+                True,
+                narration,
+                {
+                    "attacker": "player" if is_player_attack else attacker_npc.id,
+                    "target": target_npc.id,
+                    "weapon": used_weapon,
+                    "damage": damage,
+                    "target_hp": target_npc.hp,
+                    "target_max_hp": target_npc.max_hp,
+                    "target_dead": is_dead,
+                    "quest_events": quest_events if quest_events else [],
+                    "xp": result_xp,
+                    "witness_reactions": witness_reactions,
+                },
+            )
+
+    # NPC attacks player (separate code path)
+    if attacker_npc is not None and target_is_player:
         old_hp = game.player.hp
         new_hp, is_dead = _apply_damage(
             game.player.hp, game.player.max_hp, damage,
@@ -2684,3 +2787,635 @@ def abandon_quest(
             "quest_title": quest.title,
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# NPC Local Movement (Phase 11)
+# ---------------------------------------------------------------------------
+
+def has_local_movement(game: GameState) -> bool:
+    """Return True if the current location supports local tile movement."""
+    loc_id = game.player.location
+    return loc_id in game.local_maps
+
+
+def is_local_position_blocked(game: GameState, x: int, y: int) -> bool:
+    """Return True if (x, y) is blocked on the current local map."""
+    loc_id = game.player.location
+    local_map = game.local_maps.get(loc_id)
+    if local_map is None:
+        return True
+    if x < 0 or x >= local_map.width or y < 0 or y >= local_map.height:
+        return True
+    if local_map.collision[y][x]:
+        return True
+    for obj in local_map.objects:
+        if obj.blocking:
+            if obj.x <= x < obj.x + obj.width and obj.y <= y < obj.y + obj.height:
+                return True
+    return False
+
+
+def get_exit_at(game: GameState, x: int, y: int):
+    """Return the ExitPoint at (x, y) or None."""
+    loc_id = game.player.location
+    local_map = game.local_maps.get(loc_id)
+    if local_map is None:
+        return None
+    for ep in local_map.exits.values():
+        if ep.x == x and ep.y == y:
+            return ep
+    return None
+
+
+def _resolve_entry_point(game: GameState, target_location_id: str,
+                        entry_name: str) -> tuple[int, int]:
+    """Find the entry position in the target location's local map."""
+    target_map = game.local_maps.get(target_location_id)
+    if target_map is None:
+        return (0, 0)
+    for exit_key, ep in target_map.exits.items():
+        if exit_key == entry_name:
+            cx, cy = ep.x, ep.y
+            if cx == 0:
+                cx = 1
+            elif cx == target_map.width - 1:
+                cx = target_map.width - 2
+            elif cy == 0:
+                cy = 1
+            elif cy == target_map.height - 1:
+                cy = target_map.height - 2
+            if (0 <= cx < target_map.width
+                    and 0 <= cy < target_map.height
+                    and not target_map.collision[cy][cx]):
+                blocked = any(
+                    obj.blocking and obj.x == cx and obj.y == cy
+                    for obj in target_map.objects
+                )
+                if not blocked:
+                    return (cx, cy)
+    return (target_map.spawn[0], target_map.spawn[1])
+
+
+def _perform_area_transition(game: GameState, target_location_id: str,
+                             entry_name: str) -> ActionResult:
+    """Perform a full area transition."""
+    current_loc_id = game.player.location
+    game.player._area_positions[current_loc_id] = [
+        game.player.local_x, game.player.local_y,
+    ]
+    game.player.location = target_location_id
+    saved = game.player._area_positions.get(target_location_id)
+    if saved is not None:
+        game.player.local_x = saved[0]
+        game.player.local_y = saved[1]
+    else:
+        ex, ey = _resolve_entry_point(game, target_location_id, entry_name)
+        game.player.local_x = ex
+        game.player.local_y = ey
+    game.visited_locations.add(target_location_id)
+    quest_events = _check_quest_progress(game, "visit", target_location_id)
+    target_loc = game.world.locations.get(target_location_id)
+    target_name = target_loc.name if target_loc else target_location_id
+    return ActionResult(
+        True,
+        f"You travel to {target_name}.",
+        {
+            "location": target_location_id,
+            "from": current_loc_id,
+            "entry_name": entry_name,
+            "quest_events": quest_events if quest_events else [],
+        },
+    )
+
+
+def move_local(game: GameState, dx: int, dy: int) -> ActionResult:
+    """Move the player one tile in the local map."""
+    if not has_local_movement(game):
+        return ActionResult(False, "You cannot move locally here.")
+    loc_id = game.player.location
+    local_map = game.local_maps.get(loc_id)
+    if local_map is None:
+        return ActionResult(False, "There is no map here.")
+    new_x = game.player.local_x + dx
+    new_y = game.player.local_y + dy
+    if is_local_position_blocked(game, new_x, new_y):
+        return ActionResult(False, "You cannot move there.")
+    game.player.local_x = new_x
+    game.player.local_y = new_y
+    ep = get_exit_at(game, new_x, new_y)
+    if ep is not None:
+        return _perform_area_transition(game, ep.target_location_id, ep.entry_name)
+    return ActionResult(True, "You move locally.")
+
+
+def _npc_occupancy_set(game: GameState, location_id: str,
+                       exclude_npc_id: str | None = None) -> set[tuple[int, int]]:
+    """Return the set of (x, y) positions occupied by NPCs in a location."""
+    occupied: set[tuple[int, int]] = set()
+    for npc in game.world.npcs.values():
+        if npc.location != location_id:
+            continue
+        if exclude_npc_id and npc.id == exclude_npc_id:
+            continue
+        if npc.local_x < 0 or npc.local_y < 0:
+            continue
+        occupied.add((npc.local_x, npc.local_y))
+    return occupied
+
+
+def _npc_is_tile_blocked_for_npc(game: GameState, location_id: str,
+                                  x: int, y: int,
+                                  exclude_npc_id: str | None = None) -> bool:
+    """Return True if (x, y) is blocked for NPC movement."""
+    local_map = game.local_maps.get(location_id)
+    if local_map is None:
+        return True
+    if x < 0 or x >= local_map.width or y < 0 or y >= local_map.height:
+        return True
+    if local_map.collision[y][x]:
+        return True
+    for obj in local_map.objects:
+        if obj.blocking:
+            if obj.x <= x < obj.x + obj.width and obj.y <= y < obj.y + obj.height:
+                return True
+    for ep in local_map.exits.values():
+        if ep.x == x and ep.y == y:
+            return True
+    occupied = _npc_occupancy_set(game, location_id, exclude_npc_id)
+    if (x, y) in occupied:
+        return True
+    return False
+
+
+def _npc_bfs_first_step(game: GameState, location_id: str,
+                        sx: int, sy: int, tx: int, ty: int,
+                        exclude_npc_id: str) -> tuple[int, int] | None:
+    """BFS from (sx, sy) toward (tx, ty). Return the first step or None."""
+    if sx == tx and sy == ty:
+        return None
+    local_map = game.local_maps.get(location_id)
+    if local_map is None:
+        return None
+    visited: set[tuple[int, int]] = set()
+    visited.add((sx, sy))
+    from collections import deque
+    queue: deque[tuple[int, int, int, int]] = deque()
+    for dx, dy in [(0, -1), (0, 1), (-1, 0), (1, 0)]:
+        nx, ny = sx + dx, sy + dy
+        if (nx, ny) in visited:
+            continue
+        if _npc_is_tile_blocked_for_npc(game, location_id, nx, ny, exclude_npc_id):
+            continue
+        visited.add((nx, ny))
+        if nx == tx and ny == ty:
+            return (dx, dy)
+        queue.append((nx, ny, dx, dy))
+    while queue:
+        cx, cy, fdx, fdy = queue.popleft()
+        for dx, dy in [(0, -1), (0, 1), (-1, 0), (1, 0)]:
+            nx, ny = cx + dx, cy + dy
+            if (nx, ny) in visited:
+                continue
+            if _npc_is_tile_blocked_for_npc(game, location_id, nx, ny, exclude_npc_id):
+                continue
+            visited.add((nx, ny))
+            if nx == tx and ny == ty:
+                return (fdx, fdy)
+            queue.append((nx, ny, fdx, fdy))
+    return None
+
+
+def move_npc_local(game: GameState, npc_id: str, dx: int, dy: int) -> ActionResult:
+    """Move an NPC one tile in the local map."""
+    npc = game.world.npcs.get(npc_id)
+    if npc is None:
+        return ActionResult(False, f"NPC not found: {npc_id}")
+    loc_id = game.player.location
+    if npc.location != loc_id:
+        return ActionResult(False, f"{npc.name} is not in your current location.")
+    if not has_local_movement(game):
+        return ActionResult(False, "There is no local map here.")
+    if not ((dx == 0 and abs(dy) == 1) or (dy == 0 and abs(dx) == 1)):
+        return ActionResult(False, "NPCs can only move one tile in a cardinal direction.")
+    new_x = npc.local_x + dx
+    new_y = npc.local_y + dy
+    if _npc_is_tile_blocked_for_npc(game, loc_id, new_x, new_y, npc_id):
+        return ActionResult(False, "That tile is blocked.")
+    npc.local_x = new_x
+    npc.local_y = new_y
+    return ActionResult(True, f"{npc.name} moves.")
+
+
+def npc_set_movement_mode(game: GameState, npc_id: str, mode: str,
+                          guard_x: int = -1, guard_y: int = -1) -> ActionResult:
+    """Set the movement mode for an NPC."""
+    if mode not in {"stationary", "wander", "guard"}:
+        return ActionResult(False, f"Invalid movement mode: {mode}.")
+    npc = game.world.npcs.get(npc_id)
+    if npc is None:
+        return ActionResult(False, f"NPC not found: {npc_id}")
+    npc.movement_mode = mode
+    npc.move_cooldown = 0
+    if mode == "guard":
+        if guard_x >= 0 and guard_y >= 0:
+            local_map = game.local_maps.get(npc.location)
+            if local_map is not None:
+                if (guard_x < local_map.width and guard_y < local_map.height
+                        and not local_map.collision[guard_y][guard_x]):
+                    npc.guard_x = guard_x
+                    npc.guard_y = guard_y
+                elif npc.local_x >= 0 and npc.local_y >= 0:
+                    npc.guard_x = npc.local_x
+                    npc.guard_y = npc.local_y
+                else:
+                    npc.guard_x = 0
+                    npc.guard_y = 0
+        elif npc.local_x >= 0 and npc.local_y >= 0:
+            npc.guard_x = npc.local_x
+            npc.guard_y = npc.local_y
+        else:
+            npc.guard_x = 0
+            npc.guard_y = 0
+    return ActionResult(True, f"{npc.name} movement mode set to {mode}.")
+
+
+def _npc_try_wander(game: GameState, npc: NPC) -> bool:
+    """Attempt to move an NPC in a random cardinal direction."""
+    loc_id = npc.location
+    directions = [(0, -1), (0, 1), (-1, 0), (1, 0)]
+    random.shuffle(directions)
+    for dx, dy in directions:
+        new_x = npc.local_x + dx
+        new_y = npc.local_y + dy
+        if _npc_is_tile_blocked_for_npc(game, loc_id, new_x, new_y, npc.id):
+            continue
+        npc.local_x = new_x
+        npc.local_y = new_y
+        return True
+    return False
+
+
+def _npc_try_guard(game: GameState, npc: NPC) -> bool:
+    """Attempt to move an NPC toward its guard position via BFS."""
+    loc_id = npc.location
+    if npc.local_x == npc.guard_x and npc.local_y == npc.guard_y:
+        return False
+    step = _npc_bfs_first_step(
+        game, loc_id, npc.local_x, npc.local_y,
+        npc.guard_x, npc.guard_y, npc.id,
+    )
+    if step is None:
+        return False
+    dx, dy = step
+    new_x = npc.local_x + dx
+    new_y = npc.local_y + dy
+    if _npc_is_tile_blocked_for_npc(game, loc_id, new_x, new_y, npc.id):
+        return False
+    npc.local_x = new_x
+    npc.local_y = new_y
+    return True
+
+
+def update_npc_local_movement(game: GameState) -> None:
+    """Tick NPC local movement for the current location."""
+    loc_id = game.player.location
+    if loc_id not in game.local_maps:
+        return
+    for npc in game.world.npcs.values():
+        if npc.location != loc_id:
+            continue
+        if npc.movement_mode == "stationary":
+            continue
+        if npc.local_x < 0 or npc.local_y < 0:
+            continue
+        if npc.move_cooldown > 0:
+            npc.move_cooldown -= 1
+            continue
+        moved = False
+        if npc.movement_mode == "wander":
+            moved = _npc_try_wander(game, npc)
+        elif npc.movement_mode == "guard":
+            moved = _npc_try_guard(game, npc)
+        if moved:
+            npc.move_cooldown = npc.move_interval
+
+
+# ---------------------------------------------------------------------------
+# NPC Witness Perception & Immediate Reaction (Phase 13)
+# ---------------------------------------------------------------------------
+
+WITNESS_RANGE = 3  # Chebyshev distance within which NPCs can witness events
+
+
+def _get_witnesses(game: GameState, event_x: int, event_y: int,
+                   exclude_npc_id: str | None = None) -> list[NPC]:
+    """Return NPCs physically close enough to witness an event."""
+    witnesses = []
+    loc_id = game.player.location
+    for npc in game.world.npcs.values():
+        if npc.id == exclude_npc_id:
+            continue
+        if npc.location != loc_id:
+            continue
+        if npc.local_x < 0 or npc.local_y < 0:
+            continue
+        if npc.hp <= 0:
+            continue
+        if _chebyshev(event_x, event_y, npc.local_x, npc.local_y) <= WITNESS_RANGE:
+            witnesses.append(npc)
+    return witnesses
+
+
+def _evaluate_witness_reaction(witness: NPC, attacker_id: str,
+                               victim_id: str, victim_is_dead: bool,
+                               game: GameState | None = None) -> str:
+    """Determine how a witness reacts to a witnessed attack."""
+    rel_to_victim = witness.relationships.get(victim_id, 0)
+    if rel_to_victim == 0 and game is not None:
+        victim_npc = game.world.npcs.get(victim_id)
+        if victim_npc:
+            rel_to_victim = witness.relationships.get(victim_npc.name, 0)
+
+    rel_to_attacker = witness.relationships.get(attacker_id, 0)
+
+    is_brave = any(t in witness.personality for t in ("brave", "loyal", "protective"))
+    is_cowardly = any(t in witness.personality for t in ("cowardly", "cautious", "timid"))
+    is_aggressive = any(t in witness.personality for t in ("aggressive", "hostile", "violent"))
+
+    if is_brave and rel_to_victim > 0:
+        return "defend"
+    if rel_to_victim >= 20:
+        return "defend"
+    if rel_to_attacker < 0 or rel_to_victim >= 0:
+        if is_aggressive or is_brave:
+            return "warn"
+    if is_cowardly:
+        return "flee"
+    if victim_is_dead and not is_brave:
+        return "flee"
+    if rel_to_attacker < 0:
+        return "warn"
+    return "ignore"
+
+
+def _apply_flee_reaction(game: GameState, witness: NPC) -> str:
+    """Make a witness NPC flee using existing movement systems."""
+    if not has_local_movement(game):
+        return f"{witness.name} panics but has nowhere to run."
+
+    px, py = game.player.local_x, game.player.local_y
+    wx, wy = witness.local_x, witness.local_y
+
+    dx = 1 if wx > px else (-1 if wx < px else 0)
+    dy = 1 if wy > py else (-1 if wy < py else 0)
+
+    directions = [(dx, dy), (dx, 0), (0, dy), (-dx, dy), (dx, -dy),
+                  (-dx, 0), (0, -dy), (-dx, -dy)]
+
+    for ddx, dy_ in directions:
+        if ddx == 0 and dy_ == 0:
+            continue
+        new_x = wx + ddx
+        new_y = wy + dy_
+        if not _npc_is_tile_blocked_for_npc(game, witness.location, new_x, new_y, witness.id):
+            witness.local_x = new_x
+            witness.local_y = new_y
+            return f"{witness.name} flees in terror."
+
+    return f"{witness.name} panics but cannot escape."
+
+
+def _apply_defend_reaction(game: GameState, witness: NPC,
+                           attacker_id: str) -> str:
+    """Make a witness NPC defend by attacking the attacker."""
+    if attacker_id == "player":
+        result = attack(game, witness.id, "player", "")
+        if result.success:
+            return f"{witness.name} defends and attacks you!"
+        return f"{witness.name} tries to defend but fails."
+
+    attacker_npc = game.world.npcs.get(attacker_id)
+    if attacker_npc and attacker_npc.hp > 0:
+        result = attack(game, witness.id, attacker_id, "")
+        if result.success:
+            return f"{witness.name} defends and attacks {attacker_npc.name}!"
+        return f"{witness.name} tries to defend but fails."
+
+    return f"{witness.name} wants to defend but finds no target."
+
+
+def _apply_warn_reaction(witness: NPC, attacker_id: str) -> str:
+    """Make a witness NPC warn/confront the attacker."""
+    if attacker_id == "player":
+        _record_npc_memory(
+            witness,
+            f"{witness.name} warned the player to stop.",
+        )
+        return f"{witness.name} warns you to stop this violence."
+
+    attacker_name = attacker_id
+    for npc in witness.relationships:
+        if npc == attacker_id:
+            attacker_name = npc
+            break
+
+    return f"{witness.name} warns {attacker_name} to stop."
+
+
+def process_witness_reactions(game: GameState, attacker_id: str,
+                              victim_id: str, victim_is_dead: bool,
+                              event_x: int, event_y: int) -> list[str]:
+    """Process witness reactions to a witnessed attack."""
+    reactions = []
+    witnesses = _get_witnesses(game, event_x, event_y, exclude_npc_id=victim_id)
+    witnesses = [w for w in witnesses if w.name != attacker_id and w.id != attacker_id]
+
+    victim_npc = game.world.npcs.get(victim_id)
+    victim_name = victim_npc.name if victim_npc else victim_id
+
+    for witness in witnesses:
+        if victim_is_dead:
+            _record_npc_memory(witness, f"The player killed {victim_name}.")
+        else:
+            _record_npc_memory(witness, f"The player attacked {victim_name}.")
+
+        reaction = _evaluate_witness_reaction(witness, attacker_id, victim_id, victim_is_dead, game)
+
+        if reaction == "ignore":
+            continue
+        elif reaction == "flee":
+            result_msg = _apply_flee_reaction(game, witness)
+            reactions.append(result_msg)
+        elif reaction == "defend":
+            result_msg = _apply_defend_reaction(game, witness, attacker_id)
+            reactions.append(result_msg)
+        elif reaction == "warn":
+            result_msg = _apply_warn_reaction(witness, attacker_id)
+            reactions.append(result_msg)
+
+    return reactions
+
+
+# ---------------------------------------------------------------------------
+# NPC Autonomous Actions V1 (Phase 14)
+# ---------------------------------------------------------------------------
+
+def _get_nearby_npcs(game: GameState, npc: NPC, range_limit: int = 3) -> list[NPC]:
+    """Return NPCs within Chebyshev distance of the given NPC.
+
+    Only returns alive NPCs in the same location with valid coordinates.
+    Excludes the NPC itself.
+    """
+    nearby = []
+    for other in game.world.npcs.values():
+        if other.id == npc.id:
+            continue
+        if other.location != npc.location:
+            continue
+        if other.local_x < 0 or other.local_y < 0:
+            continue
+        if other.hp <= 0:
+            continue
+        if _chebyshev(npc.local_x, npc.local_y, other.local_x, other.local_y) <= range_limit:
+            nearby.append(other)
+    return nearby
+
+
+def _get_nearby_targets(game: GameState, npc: NPC) -> list[NPC]:
+    """Return valid attack targets near the NPC.
+
+    Targets are NPCs with negative relationship (enemies).
+    """
+    targets = []
+    nearby = _get_nearby_npcs(game, npc)
+    for other in nearby:
+        rel = npc.relationships.get(other.name, 0)
+        if rel < 0:
+            targets.append(other)
+    return targets
+
+
+def _is_player_hostile_to_npc(game: GameState, npc: NPC) -> bool:
+    """Check if player has recently attacked this NPC or allies."""
+    for mem in npc.memory[-5:]:
+        if "player attacked" in mem.lower() or "player killed" in mem.lower():
+            return True
+    return False
+
+
+def choose_npc_action(game: GameState, npc: NPC) -> str:
+    """Choose an autonomous action for an NPC based on its state.
+
+    Deterministic priority-based decision model.
+    Returns one of: 'idle', 'move', 'wait', 'interact', 'attack'
+    """
+    if npc.hp <= 0:
+        return "idle"
+
+    if npc.local_x < 0 or npc.local_y < 0:
+        return "idle"
+
+    # Check for hostile targets
+    targets = _get_nearby_targets(game, npc)
+    if targets:
+        return "attack"
+
+    # Check if player is hostile
+    if _is_player_hostile_to_npc(game, npc):
+        if any(t in npc.personality for t in ("brave", "aggressive", "hostile")):
+            return "attack"
+
+    # Check for explicit goals
+    if npc.goals:
+        for goal in npc.goals:
+            goal_lower = goal.lower()
+            if "protect" in goal_lower or "guard" in goal_lower:
+                if npc.movement_mode != "guard":
+                    npc.movement_mode = "guard"
+                    npc.guard_x = npc.local_x
+                    npc.guard_y = npc.local_y
+                return "wait"
+            if "avoid" in goal_lower or "flee" in goal_lower:
+                return "move"
+
+    # Check routine
+    if npc.routine:
+        if npc.current_activity:
+            return "wait"
+
+    # Default
+    if npc.movement_mode == "wander":
+        return "move"
+
+    return "idle"
+
+
+def execute_npc_action(game: GameState, npc: NPC, action: str) -> str | None:
+    """Execute an autonomous NPC action using existing systems."""
+    if action == "idle":
+        return None
+
+    if action == "wait":
+        if npc.current_activity:
+            return f"{npc.name} is {npc.current_activity}."
+        return None
+
+    if action == "move":
+        if not has_local_movement(game):
+            return None
+        if npc.movement_mode == "wander":
+            moved = _npc_try_wander(game, npc)
+            if moved:
+                npc.move_cooldown = npc.move_interval
+        return None
+
+    if action == "attack":
+        targets = _get_nearby_targets(game, npc)
+        if not targets:
+            if _is_player_hostile_to_npc(game, npc):
+                if any(t in npc.personality for t in ("brave", "aggressive", "hostile")):
+                    result = attack(game, npc.id, "player", "")
+                    return result.message if result.success else None
+            return None
+
+        targets.sort(key=lambda t: t.id)
+        target = targets[0]
+        result = attack(game, npc.id, target.id, "")
+        return result.message if result.success else None
+
+    if action == "interact":
+        nearby = _get_nearby_npcs(game, npc)
+        if nearby:
+            nearby.sort(key=lambda n: n.id)
+            target = nearby[0]
+            result = npc_interact(game, npc.id, target.id, "")
+            return result.message if result.success else None
+        return None
+
+    return None
+
+
+def tick_npc_autonomy(game: GameState) -> list[str]:
+    """Process autonomous actions for all NPCs.
+
+    Iterates NPCs in deterministic order (by ID).
+    Returns a list of narration strings for observable actions.
+    """
+    narrations = []
+    npcs = sorted(game.world.npcs.values(), key=lambda n: n.id)
+
+    for npc in npcs:
+        if npc.hp <= 0:
+            continue
+        if npc.local_x < 0 or npc.local_y < 0:
+            continue
+        if npc.location != game.player.location:
+            continue
+
+        action = choose_npc_action(game, npc)
+        narration = execute_npc_action(game, npc, action)
+        if narration:
+            narrations.append(narration)
+
+    return narrations

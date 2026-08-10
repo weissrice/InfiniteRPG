@@ -33,8 +33,8 @@ normalized = " ".join(system.split())
 
 print("\n=== 0. System Prompt ===")
 results.append(check(
-    "CRAFTING & TRADING RULES section present",
-    "CRAFTING & TRADING RULES:" in system,
+    "MECHANICAL ACTIONS section present",
+    "MECHANICAL ACTIONS:" in system,
 ))
 results.append(check(
     "craft in valid action types",

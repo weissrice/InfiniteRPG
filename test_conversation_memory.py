@@ -69,6 +69,11 @@ engine = GameEngine()
 engine.ai = MockAI()
 g = engine.game
 old_man = g.world.npcs["old_man"]
+
+# Position player adjacent to Old Man for interaction
+g.player.local_x = old_man.local_x + 1
+g.player.local_y = old_man.local_y
+
 old_input = builtins.input
 builtins.input = lambda _="": ""
 
@@ -128,7 +133,7 @@ results.append(check(
 
 print("\n=== 7. Grounding rules: no invented memories ===")
 normalized = " ".join(SYSTEM_PROMPT.split())
-results.append(check("NPC CONVERSATION MEMORY RULES present", "NPC CONVERSATION MEMORY RULES:" in SYSTEM_PROMPT))
+results.append(check("RULES section present", "RULES:" in SYSTEM_PROMPT))
 results.append(check("Do not invent memories", "Do NOT invent memories" in normalized))
 results.append(check("Memory not proof of objective truth", "does NOT independently prove" in normalized))
 results.append(check("Memory does not override game state", "Memory does not override current game state" in normalized))

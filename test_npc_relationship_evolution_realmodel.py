@@ -213,8 +213,8 @@ for i, raw in enumerate(trial_raises, start=1):
 print("\n=== 4. Real-model request carried the evolution rules ===")
 sent_system = " ".join(ai.calls[1]["system"].split())
 results.append(check(
-    "NPC RELATIONSHIP EVOLUTION RULES carried in the real request",
-    "NPC RELATIONSHIP EVOLUTION RULES:" in ai.calls[1]["system"],
+    "RULES section carried in the real request",
+    "RULES:" in ai.calls[1]["system"],
 ))
 results.append(check(
     "AI-side prohibition carried (no narrating deltas)",

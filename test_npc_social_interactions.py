@@ -34,10 +34,10 @@ results = []
 system = SYSTEM_PROMPT
 normalized = " ".join(system.split())
 
-print("=== 0. Prompt - NPC SOCIAL INTERACTION RULES ===")
+print("=== 0. Prompt - NPC social interaction rules ===")
 results.append(check(
-    "NPC SOCIAL INTERACTION RULES section present",
-    "NPC SOCIAL INTERACTION RULES:" in system,
+    "NPC INTERACTION DIRECTIONS section present",
+    "NPC INTERACTION DIRECTIONS:" in system,
 ))
 results.append(check(
     "Three interaction directions declared",

@@ -2,7 +2,7 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
-from .state import GameState, Player, World, Location, NPC, Quest, QuestObjective, Weather, WorldEvent
+from .state import GameState, Player, World, Location, NPC, Interactable, Quest, QuestObjective, Weather, WorldEvent, LocalMap, LocalObject, ExitPoint
 
 
 SAVE_FILE = Path("rpg_save.json")
@@ -77,6 +77,11 @@ def load_game(path: Path = SAVE_FILE) -> GameState:
         for npc_id, npc_data in world_data["npcs"].items()
     }
 
+    interactables = {}
+    interactables_data = world_data.get("interactables", {})
+    for inter_id, inter_data in interactables_data.items():
+        interactables[inter_id] = Interactable(**inter_data)
+
     world = World(
         name=world_data["name"],
         genre=world_data["genre"],
@@ -86,6 +91,7 @@ def load_game(path: Path = SAVE_FILE) -> GameState:
         seed=world_data.get("seed", 0),
         locations=locations,
         npcs=npcs,
+        interactables=interactables,
     )
 
     # Reconstruct quests (backward-compatible: old saves have none)
@@ -132,6 +138,23 @@ def load_game(path: Path = SAVE_FILE) -> GameState:
 
     last_event_period = data.get("last_event_period", -1)
 
+    # Reconstruct local_maps (backward-compatible: old saves have none)
+    local_maps: dict[str, LocalMap] = {}
+    for lm_id, lm_data in data.get("local_maps", {}).items():
+        objects = [LocalObject(**obj) for obj in lm_data.get("objects", [])]
+        exits = {ek: ExitPoint(**ev) for ek, ev in lm_data.get("exits", {}).items()}
+        local_maps[lm_id] = LocalMap(
+            width=lm_data["width"],
+            height=lm_data["height"],
+            terrain=lm_data.get("terrain", []),
+            collision=lm_data.get("collision", []),
+            objects=objects,
+            exits=exits,
+            spawn=lm_data.get("spawn", [0, 0]),
+        )
+
+    last_narration = data.get("last_narration", "")
+
     return GameState(
         player=player,
         world=world,
@@ -139,4 +162,6 @@ def load_game(path: Path = SAVE_FILE) -> GameState:
         visited_locations=set(data.get("visited_locations", [])),
         events=events,
         last_event_period=last_event_period,
+        local_maps=local_maps,
+        last_narration=last_narration,
     )

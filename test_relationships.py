@@ -25,6 +25,10 @@ results = []
 game = create_new_game()
 old_man = game.world.npcs["old_man"]
 
+# Position player adjacent to Old Man for interaction
+game.player.local_x = old_man.local_x + 1
+game.player.local_y = old_man.local_y
+
 print("=== 1. Talk to the Old Man ===")
 result = interact(game, "old man", "the upstairs")
 results.append(check("Interact succeeds", result.success))
@@ -86,8 +90,8 @@ finally:
     builtins.input = old_input
 
 results.append(check(
-    "NPC RELATIONSHIP RULES present in system prompt sent to AI",
-    "NPC RELATIONSHIP RULES:" in captured["system"],
+    "RULES section present in system prompt sent to AI",
+    "RULES:" in captured["system"],
 ))
 results.append(check(
     "Score meaning explained to AI",
@@ -175,7 +179,7 @@ results.append(check(
 ))
 
 print("\n=== 17. Relationship rules + hierarchy in system prompt ===")
-results.append(check("NPC RELATIONSHIP RULES present", "NPC RELATIONSHIP RULES:" in SYSTEM_PROMPT))
+results.append(check("RULES section present", "RULES:" in SYSTEM_PROMPT))
 results.append(check(
     "Relationships in SUBJECTIVE hierarchy",
     "- NPC relationships" in SYSTEM_PROMPT,

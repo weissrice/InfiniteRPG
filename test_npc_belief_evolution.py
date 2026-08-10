@@ -44,10 +44,10 @@ results = []
 system = SYSTEM_PROMPT
 normalized = " ".join(system.split())
 
-print("=== 0. Prompt - NPC BELIEF TRANSFER RULES ===")
+print("=== 0. Prompt - NPC belief transfer rules ===")
 results.append(check(
-    "NPC BELIEF TRANSFER RULES section present",
-    "NPC BELIEF TRANSFER RULES:" in system,
+    "RULES section present",
+    "RULES:" in system,
 ))
 results.append(check(
     "AI may propose candidate belief",

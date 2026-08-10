@@ -22,10 +22,10 @@ results = []
 system = SYSTEM_PROMPT
 normalized = " ".join(system.split())
 
-print("=== 0. Prompt contains NPC ACTIVITY RULES ===")
+print("=== 0. Prompt contains activity rules ===")
 results.append(check(
-    "NPC ACTIVITY RULES section present",
-    "NPC ACTIVITY RULES:" in system,
+    "RULES section present",
+    "RULES:" in system,
 ))
 results.append(check(
     "Current Activity is authoritative current state",
@@ -107,8 +107,8 @@ results.append(check(
     "(authoritative current state)" in captured["prompt"],
 ))
 results.append(check(
-    "NPC ACTIVITY RULES carried in system prompt for repro",
-    "NPC ACTIVITY RULES:" in captured["system"]
+    "RULES section carried in system prompt for repro",
+    "RULES:" in captured["system"]
     and "answer from the Current Activity in first person"
     in " ".join(captured["system"].split()),
 ))

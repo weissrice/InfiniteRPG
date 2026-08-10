@@ -1,14 +1,29 @@
-from prompt_toolkit import PromptSession
-from prompt_toolkit.key_binding import KeyBindings
+"""Infinite RPG - Main game loop and UI.
+
+UI V2: Uses the split-screen renderer for the main gameplay view.
+Overlay screens (inventory, quests, etc.) retain the classic boxed layout.
+"""
+
+import sys
+
+try:
+    from prompt_toolkit import PromptSession
+    from prompt_toolkit.key_binding import KeyBindings
+
+    _HAS_PROMPT_TOOLKIT = True
+except ImportError:
+    _HAS_PROMPT_TOOLKIT = False
 
 from engine.game import GameEngine
-from engine.renderer import render_game
+from engine.renderer import render_game, clear_screen
 from engine.weather import get_condition_description
 from engine.events import format_events_for_display
 
 
 def create_session():
     """Create a keyboard-aware command session."""
+    if not _HAS_PROMPT_TOOLKIT:
+        return None
 
     bindings = KeyBindings()
 
@@ -19,32 +34,61 @@ def create_session():
     return PromptSession(key_bindings=bindings)
 
 
+def _input_prompt(session, prompt_str="> "):
+    """Get input, using prompt_toolkit if available, else standard input."""
+    if session is not None:
+        return session.prompt(prompt_str)
+    else:
+        return input(prompt_str)
+
+
+def _overlay_header(title: str) -> None:
+    """Print a boxed overlay header."""
+    print()
+    print("\u2554\u2550" + "\u2550" * 62 + "\u2557")
+    # Center the title
+    padding = 62 - len(title) - 2
+    left_pad = padding // 2
+    right_pad = padding - left_pad
+    print(
+        f"\u2551{' ' * left_pad}{title}{' ' * right_pad}\u2551"
+    )
+    print("\u2560" + "\u2550" * 62 + "\u2563")
+
+
+def _overlay_footer() -> None:
+    """Print a boxed overlay footer."""
+    print("\u2560" + "\u2550" * 62 + "\u2563")
+    print(
+        "\u2551"
+        + " " * 17
+        + "Press ESC to close"
+        + " " * 17
+        + "\u2551"
+    )
+    print("\u255a" + "\u2550" * 62 + "\u255d")
+
+
 def show_inventory(game):
     """Display the inventory screen."""
-
     session = create_session()
 
     while True:
-        print()
-        print("╔══════════════════════════════════════════════════════════════════╗")
-        print("║                         INVENTORY                                ║")
-        print("╠══════════════════════════════════════════════════════════════════╣")
+        _overlay_header("INVENTORY")
         print()
 
         inventory = game.player.inventory
 
         if inventory:
             for item in inventory:
-                print(f"  ◆ {item}")
+                print(f"  \u25c6 {item}")
         else:
             print("  Your inventory is empty.")
 
         print()
-        print("╠══════════════════════════════════════════════════════════════════╣")
-        print("║                     Press ESC to close                          ║")
-        print("╚══════════════════════════════════════════════════════════════════╝")
+        _overlay_footer()
 
-        result = session.prompt("\n")
+        result = _input_prompt(session, "\n")
 
         if result == "__ESC__":
             return
@@ -52,14 +96,10 @@ def show_inventory(game):
 
 def show_quests(game):
     """Display the quests screen."""
-
     session = create_session()
 
     while True:
-        print()
-        print("╔══════════════════════════════════════════════════════════════════╗")
-        print("║                           QUESTS                                  ║")
-        print("╠══════════════════════════════════════════════════════════════════╣")
+        _overlay_header("QUESTS")
         print()
 
         quests = game.quests
@@ -113,11 +153,9 @@ def show_quests(game):
                     print(f"    [{q.id}] {q.title}")
                 print()
 
-        print("╠══════════════════════════════════════════════════════════════════╣")
-        print("║                     Press ESC to close                          ║")
-        print("╚══════════════════════════════════════════════════════════════════╝")
+        _overlay_footer()
 
-        result = session.prompt("\n")
+        result = _input_prompt(session, "\n")
 
         if result == "__ESC__":
             return
@@ -125,14 +163,10 @@ def show_quests(game):
 
 def show_status(game):
     """Display the player status screen."""
-
     session = create_session()
 
     while True:
-        print()
-        print("╔══════════════════════════════════════════════════════════════════╗")
-        print("║                          STATUS                                  ║")
-        print("╠══════════════════════════════════════════════════════════════════╣")
+        _overlay_header("STATUS")
         print()
 
         player = game.player
@@ -157,11 +191,9 @@ def show_status(game):
         print(f"  Weapon Dmg:      {weapon_damage}")
 
         print()
-        print("╠══════════════════════════════════════════════════════════════════╣")
-        print("║                     Press ESC to close                          ║")
-        print("╚══════════════════════════════════════════════════════════════════╝")
+        _overlay_footer()
 
-        result = session.prompt("\n")
+        result = _input_prompt(session, "\n")
 
         if result == "__ESC__":
             return
@@ -169,16 +201,12 @@ def show_status(game):
 
 def show_crafting(game):
     """Display the crafting screen."""
-
     from engine.actions import RECIPES, ITEM_PRICES
 
     session = create_session()
 
     while True:
-        print()
-        print("╔══════════════════════════════════════════════════════════════════╗")
-        print("║                        CRAFTING                                  ║")
-        print("╠══════════════════════════════════════════════════════════════════╣")
+        _overlay_header("CRAFTING")
         print()
 
         player = game.player
@@ -198,7 +226,6 @@ def show_crafting(game):
                 print(f"      Ingredients: {', '.join(ingredient_parts)}")
                 print(f"      Output: {recipe.output} x{recipe.output_quantity}")
 
-                # Check if player can craft
                 can_craft = True
                 for ingredient, required in recipe.ingredients.items():
                     if player.inventory.count(ingredient) < required:
@@ -209,11 +236,9 @@ def show_crafting(game):
                 print(f"      Status: {status}")
                 print()
 
-        print("╠══════════════════════════════════════════════════════════════════╣")
-        print("║                     Press ESC to close                          ║")
-        print("╚══════════════════════════════════════════════════════════════════╝")
+        _overlay_footer()
 
-        result = session.prompt("\n")
+        result = _input_prompt(session, "\n")
 
         if result == "__ESC__":
             return
@@ -221,16 +246,12 @@ def show_crafting(game):
 
 def show_trading(game):
     """Display the trading screen."""
-
     from engine.actions import ITEM_PRICES
 
     session = create_session()
 
     while True:
-        print()
-        print("╔══════════════════════════════════════════════════════════════════╗")
-        print("║                        TRADING                                  ║")
-        print("╠══════════════════════════════════════════════════════════════════╣")
+        _overlay_header("TRADING")
         print()
 
         player = game.player
@@ -268,45 +289,30 @@ def show_trading(game):
 
                     print()
 
-        print("╠══════════════════════════════════════════════════════════════════╣")
-        print("║                     Press ESC to close                          ║")
-        print("╚══════════════════════════════════════════════════════════════════╝")
+        _overlay_footer()
 
-        result = session.prompt("\n")
+        result = _input_prompt(session, "\n")
 
         if result == "__ESC__":
             return
 
 
 def show_map(game):
-    """Display the map screen."""
-
-    from engine.map import render_map, get_location_details
+    """Display the map screen using the top-down 2D world map."""
+    from engine.world_map import render_full_map
 
     session = create_session()
 
     while True:
-        print()
-        print("╔══════════════════════════════════════════════════════════════════╗")
-        print("║                           MAP                                    ║")
-        print("╠══════════════════════════════════════════════════════════════════╣")
+        _overlay_header("MAP")
         print()
 
-        # Render the ASCII map
-        map_str = render_map(game)
+        map_str = render_full_map(game)
         print(map_str)
 
-        # Show current location details
-        current_loc = game.current_location()
-        if current_loc:
-            details = get_location_details(game, current_loc.id)
-            print(details)
+        _overlay_footer()
 
-        print("╠══════════════════════════════════════════════════════════════════╣")
-        print("║                     Press ESC to close                          ║")
-        print("╚══════════════════════════════════════════════════════════════════╝")
-
-        result = session.prompt("\n")
+        result = _input_prompt(session, "\n")
 
         if result == "__ESC__":
             return
@@ -314,14 +320,10 @@ def show_map(game):
 
 def show_weather(game):
     """Display the weather screen."""
-
     session = create_session()
 
     while True:
-        print()
-        print("╔══════════════════════════════════════════════════════════════════╗")
-        print("║                          WEATHER                                 ║")
-        print("╠══════════════════════════════════════════════════════════════════╣")
+        _overlay_header("WEATHER")
         print()
 
         weather = game.world.weather
@@ -329,16 +331,14 @@ def show_weather(game):
 
         print(f"  Condition:    {weather.condition.title()}")
         print(f"  Description:  {desc}")
-        print(f"  Temperature:  {weather.temperature}°C")
+        print(f"  Temperature:  {weather.temperature}\u00b0C")
         print(f"  Time:         {game.world.time}")
         print(f"  Day:          {game.world.day}")
 
         print()
-        print("╠══════════════════════════════════════════════════════════════════╣")
-        print("║                     Press ESC to close                          ║")
-        print("╚══════════════════════════════════════════════════════════════════╝")
+        _overlay_footer()
 
-        result = session.prompt("\n")
+        result = _input_prompt(session, "\n")
 
         if result == "__ESC__":
             return
@@ -346,25 +346,19 @@ def show_weather(game):
 
 def show_events(game):
     """Display the world events screen."""
-
     session = create_session()
 
     while True:
-        print()
-        print("╔══════════════════════════════════════════════════════════════════╗")
-        print("║                    RECENT WORLD EVENTS                           ║")
-        print("╠══════════════════════════════════════════════════════════════════╣")
+        _overlay_header("RECENT WORLD EVENTS")
         print()
 
         display = format_events_for_display(game.events)
         print(display)
 
         print()
-        print("╠══════════════════════════════════════════════════════════════════╣")
-        print("║                     Press ESC to close                          ║")
-        print("╚══════════════════════════════════════════════════════════════════╝")
+        _overlay_footer()
 
-        result = session.prompt("\n")
+        result = _input_prompt(session, "\n")
 
         if result == "__ESC__":
             return
@@ -372,15 +366,39 @@ def show_events(game):
 
 def main():
     print()
-    print("╔══════════════════════════════════════════════════════════════════╗")
-    print("║                                                                  ║")
-    print("║                      ✦ INFINITE RPG ✦                            ║")
-    print("║                                                                  ║")
-    print("║                       [1] New Game                               ║")
-    print("║                       [2] Load Game                              ║")
-    print("║                       [3] Quit                                   ║")
-    print("║                                                                  ║")
-    print("╚══════════════════════════════════════════════════════════════════╝")
+    print("\u2554\u2550" + "\u2550" * 62 + "\u2557")
+    print("\u2551" + " " * 62 + "\u2551")
+    print(
+        "\u2551"
+        + " " * 15
+        + "\u2726 INFINITE RPG \u2726"
+        + " " * 15
+        + "\u2551"
+    )
+    print("\u2551" + " " * 62 + "\u2551")
+    print(
+        "\u2551"
+        + " " * 18
+        + "[1] New Game"
+        + " " * 18
+        + "\u2551"
+    )
+    print(
+        "\u2551"
+        + " " * 18
+        + "[2] Load Game"
+        + " " * 17
+        + "\u2551"
+    )
+    print(
+        "\u2551"
+        + " " * 18
+        + "[3] Quit"
+        + " " * 21
+        + "\u2551"
+    )
+    print("\u2551" + " " * 62 + "\u2551")
+    print("\u255a" + "\u2550" * 62 + "\u255d")
     print()
 
     choice = input("> ").strip()
@@ -408,13 +426,16 @@ def main():
                 print(f"Load failed: {error}")
                 return
 
-        session = PromptSession()
+        session = create_session()
 
         while True:
-            render_game(game.game)
+            output = render_game(game.game)
+            clear_screen()
+            sys.stdout.write(output)
+            sys.stdout.flush()
 
             try:
-                player_input = session.prompt("> ")
+                player_input = _input_prompt(session, "> ")
             except (EOFError, KeyboardInterrupt):
                 break
 
@@ -508,11 +529,10 @@ def main():
 
             result = game.process_input(player_input)
 
-
             for action in result["actions"]:
                 if not action["success"]:
                     print()
-                    print(f"⚠ {action['message']}")
+                    print(f"\u26a0 {action['message']}")
 
     finally:
         game.close()

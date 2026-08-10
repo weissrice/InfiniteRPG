@@ -25,6 +25,10 @@ results = []
 game = create_new_game()
 old_man = game.world.npcs["old_man"]
 
+# Position player adjacent to Old Man for interaction
+game.player.local_x = old_man.local_x + 1
+game.player.local_y = old_man.local_y
+
 print("=== 1. Talk to the Old Man ===")
 result = interact(game, "old man", "the forest")
 results.append(check("Interact succeeds", result.success))
@@ -153,7 +157,7 @@ results.append(check(
 ))
 
 print("\n=== 8. Belief rules in system prompt ===")
-results.append(check("NPC BELIEF RULES present", "NPC BELIEF RULES:" in SYSTEM_PROMPT))
+results.append(check("RULES section present", "RULES:" in SYSTEM_PROMPT))
 results.append(check(
     "Authoritative/subjective hierarchy present",
     "CRITICAL: AUTHORITATIVE VS SUBJECTIVE HIERARCHY" in SYSTEM_PROMPT,

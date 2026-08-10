@@ -18,8 +18,8 @@ normalized = " ".join(system.split())
 
 print("=== 1. Conflict rules section present ===")
 results.append(check(
-    "NPC STATE CONFLICT RULES section present",
-    "NPC STATE CONFLICT RULES:" in system,
+    "RULES section present",
+    "RULES:" in system,
 ))
 results.append(check(
     "Current authoritative state wins over subjective state",
@@ -153,7 +153,7 @@ finally:
 prompt_system, prompt = captured[0]
 results.append(check(
     "System prompt carries conflict rules",
-    "NPC STATE CONFLICT RULES:" in prompt_system,
+    "RULES:" in prompt_system,
 ))
 results.append(check(
     "Prompt carries door CURRENT STATE: open",

@@ -33,6 +33,10 @@ def advance_npc_routines(game: GameState) -> List[str]:
     to a different existing location, Python moves the NPC there. This
     is fully deterministic and data-driven; no AI decision-making.
 
+    When an NPC moves to a new location, its local position is reset to
+    a valid walkable tile in the target LocalMap (avoiding walls, blocking
+    objects, exits, and other NPCs).
+
     Returns a list of human-readable change descriptions.
     """
 
@@ -64,6 +68,25 @@ def advance_npc_routines(game: GameState) -> List[str]:
 
         if npc.id not in target_location.npcs:
             target_location.npcs.append(npc.id)
+
+        # Place NPC at a valid position in the target LocalMap
+        target_lm = game.local_maps.get(target_id)
+        if target_lm is not None:
+            from .local_map import place_npcs_on_local_map
+            # Build set of positions already occupied by other NPCs in target
+            occupied = set()
+            for other_npc in game.world.npcs.values():
+                if (other_npc.id != npc.id
+                        and other_npc.location == target_id
+                        and other_npc.local_x >= 0
+                        and other_npc.local_y >= 0):
+                    occupied.add((other_npc.local_x, other_npc.local_y))
+            place_npcs_on_local_map(target_lm, [npc], occupied=occupied)
+        else:
+            # No LocalMap for target yet; reset to invalid so placement
+            # happens later when the map exists
+            npc.local_x = -1
+            npc.local_y = -1
 
         _record_routine_memory(
             npc,
